@@ -22,10 +22,80 @@
 
 static const int FRAMES_PER_SECOND = 25;
 
-// CSV list parser tolerant to any whitespace around commas. Locale-immune via
-// std::from_chars (C++17 charconv, overloaded on the numeric type). Used for
-// audio_codes (int) and custom_timesteps (float). Bails on first parse error
-// or overflow, returning the values consumed so far.
+// Locale immune scalar reader. std::from_chars handles ints on every stdlib
+// and floats on every stdlib except libc++ before v20 (AppleClang ships an
+// old libc++). There we hand roll a tiny C locale parser supporting decimal
+// and optional exponent. Returns ptr past consumed bytes, or first on parse
+// failure.
+static const char * scan_num(const char * first, const char * last, int & v) {
+    auto r = std::from_chars(first, last, v);
+    return r.ec == std::errc{} ? r.ptr : first;
+}
+
+static const char * scan_num(const char * first, const char * last, float & v) {
+#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 200000
+    const char * p   = first;
+    bool         neg = false;
+    if (p < last && (*p == '+' || *p == '-')) {
+        neg = (*p == '-');
+        p++;
+    }
+    double m   = 0.0;
+    bool   any = false;
+    while (p < last && *p >= '0' && *p <= '9') {
+        m   = m * 10.0 + (double) (*p - '0');
+        any = true;
+        p++;
+    }
+    if (p < last && *p == '.') {
+        p++;
+        double frac = 0.1;
+        while (p < last && *p >= '0' && *p <= '9') {
+            m    += (double) (*p - '0') * frac;
+            frac *= 0.1;
+            any   = true;
+            p++;
+        }
+    }
+    if (!any) {
+        return first;
+    }
+    if (p < last && (*p == 'e' || *p == 'E')) {
+        const char * eptr = p;
+        p++;
+        bool eneg = false;
+        if (p < last && (*p == '+' || *p == '-')) {
+            eneg = (*p == '-');
+            p++;
+        }
+        int  e    = 0;
+        bool eany = false;
+        while (p < last && *p >= '0' && *p <= '9') {
+            e    = e * 10 + (*p - '0');
+            eany = true;
+            p++;
+        }
+        if (!eany) {
+            p = eptr;
+        } else {
+            double scale = 1.0;
+            for (int i = 0; i < e; i++) {
+                scale *= 10.0;
+            }
+            m = eneg ? m / scale : m * scale;
+        }
+    }
+    v = (float) (neg ? -m : m);
+    return p;
+#else
+    auto r = std::from_chars(first, last, v);
+    return r.ec == std::errc{} ? r.ptr : first;
+#endif
+}
+
+// CSV list parser tolerant to any whitespace around commas. Locale immune,
+// bails on first parse error and returns the values consumed so far. Used
+// for audio_codes (int) and custom_timesteps (float).
 template <typename T> static std::vector<T> parse_csv(const std::string & s) {
     std::vector<T> out;
     const char *   first = s.data();
@@ -37,13 +107,13 @@ template <typename T> static std::vector<T> parse_csv(const std::string & s) {
         if (first == last) {
             break;
         }
-        T    v{};
-        auto r = std::from_chars(first, last, v);
-        if (r.ec != std::errc{}) {
+        T            v{};
+        const char * next = scan_num(first, last, v);
+        if (next == first) {
             break;
         }
         out.push_back(v);
-        first = r.ptr;
+        first = next;
     }
     return out;
 }
