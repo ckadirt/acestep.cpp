@@ -59,11 +59,8 @@ static ggml_backend_t cpu_backend_new(int n_threads) {
     return cpu;
 }
 
-// GGML log filter: collapse exact consecutive duplicate lines. The CUDA graph
-// capture emits one "reused" line per replay step, which floods stderr and
-// stalls a slow log reader (a full pipe blocks the writer). Keeps the first
-// occurrence and, when the run of duplicates ends, reports the total count.
-// Direct fprintf(stderr) logs from this app bypass ggml and stay untouched.
+// Collapse exact consecutive duplicate ggml log lines and report the total
+// count when the run ends (tames the CUDA graph capture "reused" flood).
 static void acestep_ggml_log(enum ggml_log_level level, const char * text, void * user_data) {
     (void) level;
     (void) user_data;
