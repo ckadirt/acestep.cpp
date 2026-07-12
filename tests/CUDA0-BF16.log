@@ -101,7 +101,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Qwen3] Attn: Q+K+V fused
 [Qwen3] MLP: gate+up fused
 [WeightCtx] Loaded 310 tensors, 1136.5 MB into backend
-[Store] Load TextEnc: 711 ms
+[Store] Load TextEnc: 284 ms
 [Debug] text_hidden: [70, 1024] first4: 3.652379 1.048645 0.229843 -13.063987
 [Debug] lyric_embed: [167, 1024] first4: 0.029175 0.032227 -0.022339 -0.028809
 [Store] Unload TextEnc (1136.5 MB)
@@ -118,11 +118,11 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Qwen3] MLP: gate+up fused
 [WeightCtx] Loaded 140 tensors, 1160.5 MB into backend
 [Load] CondEncoder: lyric(8L), timbre(4L), text_proj, null_cond
-[Store] Load CondEnc: 727 ms
+[Store] Load CondEnc: 526 ms
 [CondEnc] Lyric sliding mask: 167x167, window=128
 [CondEnc] Timbre sliding mask: 1x1, window=128
 [Encode] Packed: lyric=167 + timbre=1 + text=70 = 238 tokens
-[Encode-Text Batch0] 70+167 tokens -> enc_S=238, 20.9 ms
+[Encode-Text Batch0] 70+167 tokens -> enc_S=238, 21.5 ms
 [Debug] enc_hidden: [238, 2048] first4: 1.762581 -0.049432 -0.132992 0.058069
 [Store] Unload CondEnc (1160.5 MB)
 load_backend: loaded CUDA backend from /mnt/workspace/git/acestep.cpp/build/libggml-cuda.so
@@ -132,449 +132,19 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [GGUF] /mnt/workspace/git/acestep.cpp/models/acestep-v15-turbo-BF16.gguf: 678 tensors, data at offset 57024
 [WeightCtx] Loaded 30 tensors, 200.3 MB into backend
 [Load] Detokenizer: FSQ(6->2048) + 2L encoder(S=5, 2048->64)
-[Store] Load FSQ-Detok: 128 ms
+[Store] Load FSQ-Detok: 90 ms
 CUDA Graph id 8 reused
 ggml_backend_cuda_graph_compute: CUDA graph warmup complete
 CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
 [Context] Decoded: 434 codes -> 2170 frames (86.8s @ 25Hz)
-[Build-Context Batch0] Detokenizer: 116.5 ms, 434 codes
+[Build-Context Batch0] Detokenizer: 108.0 ms, 434 codes
 [Debug] detok_output: [2170, 64] first4: -0.124076 1.434873 0.309935 -0.624868
 [Store] Unload FSQ-Detok (200.3 MB)
 [Init-Noise Batch0] Philox noise seed=42, [2170, 64] solver=euler
 [Debug] noise: [2170, 64] first4: 0.194336 2.156250 -0.171875 0.847656
 [Debug] context: [2170, 128] first4: -0.124076 1.434873 0.309935 -0.624868
 [Init-Noise] Starting: T=2170, S=1085, enc_S=238, steps=8, batch=1 (cover)
+[Dedup] Previous line repeated 432 times total
 load_backend: loaded CUDA backend from /mnt/workspace/git/acestep.cpp/build/libggml-cuda.so
 load_backend: loaded Vulkan backend from /mnt/workspace/git/acestep.cpp/build/libggml-vulkan.so
 load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libggml-cpu-zen4.so
@@ -586,7 +156,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Load] null_condition_emb found (CFG available)
 [WeightCtx] Loaded 478 tensors, 3007.9 MB into backend
 [Load] DiT: 24 layers, H=2048, Nh=16/8, D=128
-[Store] Load DiT: 1373 ms
+[Store] Load DiT: 1356 ms
 [DiT] Batch N=1, T=2170, S=1085, enc_S=238
 [DiT] Graph: 2129 nodes
 [DiT] Solver: ODE Euler (1 NFE/step, order 1)
@@ -616,36 +186,29 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Debug] dit_step0_vt: [2170, 64] first4: 0.022634 1.115833 0.351516 2.377223
 [Debug] dit_step0_xt: [2170, 64] first4: 0.193307 2.105530 -0.187853 0.739601
 [DiT] Step 1/8 t=1.000
-CUDA Graph id 10 reused
 ggml_backend_cuda_graph_compute: CUDA graph warmup complete
 [Debug] dit_step1_vt: [2170, 64] first4: -0.228331 1.306460 -0.137135 1.866482
 [Debug] dit_step1_xt: [2170, 64] first4: 0.205762 2.034269 -0.180373 0.637793
 [DiT] Step 2/8 t=0.955
-CUDA Graph id 10 reused
 [Debug] dit_step2_vt: [2170, 64] first4: -0.014647 1.212786 0.103002 2.391060
 [Debug] dit_step2_xt: [2170, 64] first4: 0.206738 1.953416 -0.187240 0.478389
 [DiT] Step 3/8 t=0.900
-CUDA Graph id 10 reused
 [Debug] dit_step3_vt: [2170, 64] first4: 0.266804 1.086355 0.253257 2.641131
 [Debug] dit_step3_xt: [2170, 64] first4: 0.184504 1.862887 -0.208344 0.258294
 [DiT] Step 4/8 t=0.833
-CUDA Graph id 10 reused
 [Debug] dit_step4_vt: [2170, 64] first4: 0.297957 0.996606 0.111334 2.712721
 [Debug] dit_step4_xt: [2170, 64] first4: 0.152580 1.756108 -0.220273 -0.032354
 [DiT] Step 5/8 t=0.750
-CUDA Graph id 10 reused
 [Debug] dit_step5_vt: [2170, 64] first4: 0.283015 0.921376 -0.300600 2.771382
 [Debug] dit_step5_xt: [2170, 64] first4: 0.112150 1.624483 -0.177330 -0.428266
 [DiT] Step 6/8 t=0.643
-CUDA Graph id 10 reused
 [Debug] dit_step6_vt: [2170, 64] first4: 0.171021 0.636431 -0.827703 2.840888
 [Debug] dit_step6_xt: [2170, 64] first4: 0.077946 1.497196 -0.011790 -0.996444
 [DiT] Step 7/8 t=0.500
-CUDA Graph id 10 reused
 [Debug] dit_step7_vt: [2170, 64] first4: 0.000409 0.186355 -1.485624 3.123371
 [Debug] dit_x0: [2170, 64] first4: 0.077823 1.441290 0.433898 -1.933455
 [DiT] Step 8/8 t=0.300
-[DiT-Generate] Total: 291.1 ms (291.1 ms/sample)
+[DiT-Generate] Total: 310.7 ms (310.7 ms/sample)
 [Debug] dit_output: [2170, 64] first4: 0.077823 1.441290 0.433898 -1.933455
 [Store] Unload DiT (3007.9 MB)
 [GGUF] /mnt/workspace/git/acestep.cpp/models/vae-BF16.gguf: 365 tensors, data at offset 30048
@@ -655,38 +218,38 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Load] VAE backend: CUDA0 (CPU threads: 16)
 [VAE] Backend: CUDA0, Weight buffer: 161.1 MB
 [VAE] Loaded: 5 blocks, upsample=1920x, F32 activations
-[Store] Load VAE-Dec: 688 ms
+[Store] Load VAE-Dec: 694 ms
 [VAE] Tiled decode: 3 tiles (chunk=1024, overlap=64, stride=896)
 [VAE] Graph: 479 nodes, T_latent=960
 [VAE] Upsample factor: 1920.00 (expected ~1920)
 [VAE] Graph: 479 nodes, T_latent=1024
 [VAE] Graph: 479 nodes, T_latent=442
 [VAE] Tiled decode done: 3 tiles -> T_audio=4166400 (86.80s @ 48kHz)
-[VAE-Decode Batch0] Decode: 445.8 ms
+[VAE-Decode Batch0] Decode: 457.8 ms
 [Debug] vae_audio: [2, 4166400] first4: 0.000677 0.001269 0.001135 0.001532
 [Store] Unload VAE-Dec (161.1 MB)
 [MP3] Encoding 86.8s @ 128 kbps, 48000 Hz stereo
-[MP3] 1388928 bytes (12.0:1), 467 ms (185.77x realtime), 32 threads
+[MP3] 1388928 bytes (12.0:1), 475 ms (182.77x realtime), 32 threads
 [MP3] Wrote ggml-turbo/request00.mp3
 [Ace-Synth] All done
-2026-07-08 08:48:03.968 | DEBUG    | acestep.core.generation.handler.init_service_memory_basic:_apply_malloc_mmap_threshold:50 - [memory] Set M_MMAP_THRESHOLD=131072 for immediate OS reclaim of large frees
+2026-07-12 10:07:59.065 | DEBUG    | acestep.core.generation.handler.init_service_memory_basic:_apply_malloc_mmap_threshold:50 - [memory] Set M_MMAP_THRESHOLD=131072 for immediate OS reclaim of large frees
 Skipping import of cpp extensions due to incompatible torch version. Please upgrade to torch >= 2.11.0 (found 2.10.0+cu128).
-2026-07-08 08:48:06.029 | WARNING  | acestep.training.trainer:<module>:40 - bitsandbytes not installed. Using standard AdamW.
-2026-07-08 08:48:06.034 | INFO     | acestep.gpu_config:get_gpu_memory_gb:578 - CUDA GPU detected: NVIDIA RTX PRO 6000 Blackwell Workstation Edition (95.0 GB)
-2026-07-08 08:48:06.104 | INFO     | acestep.core.generation.handler.init_service_loader:_load_main_model_from_checkpoint:174 - [initialize_service] Attempting to load model with attention implementation: sdpa
+2026-07-12 10:08:00.894 | WARNING  | acestep.training.trainer:<module>:40 - bitsandbytes not installed. Using standard AdamW.
+2026-07-12 10:08:00.897 | INFO     | acestep.gpu_config:get_gpu_memory_gb:578 - CUDA GPU detected: NVIDIA RTX PRO 6000 Blackwell Workstation Edition (95.0 GB)
+2026-07-12 10:08:00.965 | INFO     | acestep.core.generation.handler.init_service_loader:_load_main_model_from_checkpoint:174 - [initialize_service] Attempting to load model with attention implementation: sdpa
 Unable to import `torchao` Tensor objects. This may affect loading checkpoints serialized with `torchao`
-2026-07-08 08:48:08.128 | INFO     | acestep.core.generation.handler.generate_music:generate_music:289 - [generate_music] Turbo model detected: overriding guidance_scale 0.0 -> 1.0 (turbo does not use CFG).
-2026-07-08 08:48:08.128 | INFO     | acestep.core.generation.handler.generate_music:generate_music:304 - [generate_music] Starting generation...
-2026-07-08 08:48:08.128 | INFO     | acestep.core.generation.handler.generate_music:generate_music:307 - [generate_music] Preparing inputs...
-2026-07-08 08:48:08.128 | INFO     | acestep.core.generation.handler.generate_music_request:_prepare_reference_and_source_audio:179 - [generate_music] cover task: no src_audio but audio codes provided, proceeding with codes
-2026-07-08 08:48:08.131 | INFO     | acestep.core.generation.handler.generate_music:_vram_preflight_check:156 - [generate_music] VRAM pre-flight: 88.44 GB free, ~0.94 GB needed (batch=1, duration=88s, mode=turbo).
-2026-07-08 08:48:08.137 | INFO     | acestep.core.generation.handler.conditioning_target:_prepare_target_latents_and_wavs:78 - [generate_music] Decoding audio codes for item 0...
-2026-07-08 08:48:08.345 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_precomputed_lm_hints:31 - [generate_music] Decoding audio codes for LM hints for item 0...
-2026-07-08 08:48:08.348 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:119 - 
+2026-07-12 10:08:02.485 | INFO     | acestep.core.generation.handler.generate_music:generate_music:289 - [generate_music] Turbo model detected: overriding guidance_scale 0.0 -> 1.0 (turbo does not use CFG).
+2026-07-12 10:08:02.485 | INFO     | acestep.core.generation.handler.generate_music:generate_music:304 - [generate_music] Starting generation...
+2026-07-12 10:08:02.485 | INFO     | acestep.core.generation.handler.generate_music:generate_music:307 - [generate_music] Preparing inputs...
+2026-07-12 10:08:02.486 | INFO     | acestep.core.generation.handler.generate_music_request:_prepare_reference_and_source_audio:179 - [generate_music] cover task: no src_audio but audio codes provided, proceeding with codes
+2026-07-12 10:08:02.489 | INFO     | acestep.core.generation.handler.generate_music:_vram_preflight_check:156 - [generate_music] VRAM pre-flight: 87.83 GB free, ~0.94 GB needed (batch=1, duration=88s, mode=turbo).
+2026-07-12 10:08:02.495 | INFO     | acestep.core.generation.handler.conditioning_target:_prepare_target_latents_and_wavs:78 - [generate_music] Decoding audio codes for item 0...
+2026-07-12 10:08:02.696 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_precomputed_lm_hints:31 - [generate_music] Decoding audio codes for LM hints for item 0...
+2026-07-12 10:08:02.699 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:119 - 
 ======================================================================
-2026-07-08 08:48:08.348 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:120 - 🔍 [DEBUG] DiT TEXT ENCODER INPUT (Inference)
-2026-07-08 08:48:08.348 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:121 - ======================================================================
-2026-07-08 08:48:08.348 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:122 - text_prompt:
+2026-07-12 10:08:02.699 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:120 - 🔍 [DEBUG] DiT TEXT ENCODER INPUT (Inference)
+2026-07-12 10:08:02.699 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:121 - ======================================================================
+2026-07-12 10:08:02.699 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:122 - text_prompt:
 # Instruction
 Generate audio semantic tokens based on the given conditions:
 
@@ -700,8 +263,8 @@ An upbeat and anthemic pop-rock track driven by bright, slightly overdriven
 - duration: 88 seconds
 <|endoftext|>
 
-2026-07-08 08:48:08.348 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:123 - ======================================================================
-2026-07-08 08:48:08.348 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:124 - lyrics_text:
+2026-07-12 10:08:02.699 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:123 - ======================================================================
+2026-07-12 10:08:02.699 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:124 - lyrics_text:
 # Languages
 fr
 
@@ -728,27 +291,27 @@ Dans le monde des tutos virtuels
 Gândoline, Pumbé à midi
 Une famille à connecter, c'est vrai
 D'un enfant qui voit toi fusionner<|endoftext|>
-2026-07-08 08:48:08.348 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:125 - ======================================================================
+2026-07-12 10:08:02.699 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:125 - ======================================================================
 
-2026-07-08 08:48:08.355 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:110 - [preprocess_batch] Inferring prompt embeddings...
-2026-07-08 08:48:08.370 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:113 - [preprocess_batch] Inferring lyric embeddings...
-2026-07-08 08:48:08.370 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:161 - [service_generate] Generating audio... (DiT backend: PyTorch (cuda))
-2026-07-08 08:48:08.396 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:263 - [service_generate] DiT diffusion via PyTorch (cuda)...
-2026-07-08 08:48:08.404 | INFO     | acestep.models.common.dcw_correction:__init__:98 - [DCW] Active — mode=double, scaler=0.0500, high_scaler=0.0200, wavelet='haar'
-2026-07-08 08:48:08.490 | WARNING  | acestep.models.common.dcw_loader:_try_import:39 - DCW is enabled but 'pytorch_wavelets' is not installed. Install with `pip install pytorch_wavelets PyWavelets` to use Differential Correction in Wavelet domain. Falling back to no-op for this generation.
-2026-07-08 08:48:08.713 | INFO     | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:42 - [generate_music] Model generation completed. Decoding latents...
-2026-07-08 08:48:08.714 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:64 - [generate_music] pred_latents: torch.Size([1, 2170, 64]), dtype=torch.bfloat16
-2026-07-08 08:48:08.714 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:65 - [generate_music] time_costs: {'encoder_time_cost': 0.006960153579711914, 'diffusion_time_cost': 0.3097567558288574, 'diffusion_per_step_time_cost': 0.03871959447860718, 'total_time_cost': 0.31671690940856934, 'offload_time_cost': 0.0}
-2026-07-08 08:48:08.728 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:127 - [generate_music] Decoding latents with VAE...
-2026-07-08 08:48:08.730 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:136 - [generate_music] Before VAE decode: allocated=5.98GB, max=7.29GB
-2026-07-08 08:48:08.731 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:154 - [generate_music] Effective free VRAM before VAE decode: 88.34 GB
-2026-07-08 08:48:08.731 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:172 - [generate_music] Using tiled VAE decode to reduce VRAM usage...
-2026-07-08 08:48:08.731 | DEBUG    | acestep.core.generation.handler.memory_utils:_get_auto_decode_chunk_size:108 - [_get_auto_decode_chunk_size] Effective free VRAM: 88.34 GB
-2026-07-08 08:48:08.731 | DEBUG    | acestep.core.generation.handler.memory_utils:_should_offload_wav_to_cpu:131 - [_should_offload_wav_to_cpu] Effective free VRAM: 88.34 GB
-2026-07-08 08:48:08.731 | INFO     | acestep.core.generation.handler.vae_decode:tiled_decode:56 - [tiled_decode] chunk_size=512, offload_wav_to_cpu=False, latents_shape=torch.Size([1, 64, 2170])
-2026-07-08 08:48:09.006 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:193 - [generate_music] After VAE decode: allocated=6.15GB, max=7.44GB
-2026-07-08 08:48:09.166 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:38 - [generate_music] VAE decode completed. Preparing audio tensors...
-2026-07-08 08:48:09.169 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:50 - [generate_music] Done! Generated 1 audio tensors.
+2026-07-12 10:08:02.706 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:110 - [preprocess_batch] Inferring prompt embeddings...
+2026-07-12 10:08:02.720 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:113 - [preprocess_batch] Inferring lyric embeddings...
+2026-07-12 10:08:02.721 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:161 - [service_generate] Generating audio... (DiT backend: PyTorch (cuda))
+2026-07-12 10:08:02.756 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:263 - [service_generate] DiT diffusion via PyTorch (cuda)...
+2026-07-12 10:08:02.764 | INFO     | acestep.models.common.dcw_correction:__init__:98 - [DCW] Active — mode=double, scaler=0.0500, high_scaler=0.0200, wavelet='haar'
+2026-07-12 10:08:02.848 | WARNING  | acestep.models.common.dcw_loader:_try_import:39 - DCW is enabled but 'pytorch_wavelets' is not installed. Install with `pip install pytorch_wavelets PyWavelets` to use Differential Correction in Wavelet domain. Falling back to no-op for this generation.
+2026-07-12 10:08:03.077 | INFO     | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:42 - [generate_music] Model generation completed. Decoding latents...
+2026-07-12 10:08:03.078 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:64 - [generate_music] pred_latents: torch.Size([1, 2170, 64]), dtype=torch.bfloat16
+2026-07-12 10:08:03.078 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:65 - [generate_music] time_costs: {'encoder_time_cost': 0.006923675537109375, 'diffusion_time_cost': 0.31328487396240234, 'diffusion_per_step_time_cost': 0.03916060924530029, 'total_time_cost': 0.3202085494995117, 'offload_time_cost': 0.0}
+2026-07-12 10:08:03.092 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:127 - [generate_music] Decoding latents with VAE...
+2026-07-12 10:08:03.094 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:136 - [generate_music] Before VAE decode: allocated=5.98GB, max=7.29GB
+2026-07-12 10:08:03.094 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:154 - [generate_music] Effective free VRAM before VAE decode: 87.73 GB
+2026-07-12 10:08:03.094 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:172 - [generate_music] Using tiled VAE decode to reduce VRAM usage...
+2026-07-12 10:08:03.094 | DEBUG    | acestep.core.generation.handler.memory_utils:_get_auto_decode_chunk_size:108 - [_get_auto_decode_chunk_size] Effective free VRAM: 87.73 GB
+2026-07-12 10:08:03.094 | DEBUG    | acestep.core.generation.handler.memory_utils:_should_offload_wav_to_cpu:131 - [_should_offload_wav_to_cpu] Effective free VRAM: 87.73 GB
+2026-07-12 10:08:03.094 | INFO     | acestep.core.generation.handler.vae_decode:tiled_decode:56 - [tiled_decode] chunk_size=512, offload_wav_to_cpu=False, latents_shape=torch.Size([1, 64, 2170])
+2026-07-12 10:08:03.369 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:193 - [generate_music] After VAE decode: allocated=6.15GB, max=7.44GB
+2026-07-12 10:08:03.528 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:38 - [generate_music] VAE decode completed. Preparing audio tensors...
+2026-07-12 10:08:03.531 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:50 - [generate_music] Done! Generated 1 audio tensors.
 [Request] Parsed ggml-sft/request0.json
 [Request] seed=42 lm_batch=1 synth_batch=1
 [Request] caption: An upbeat and anthemic pop-rock track driven by bright, slig...
@@ -852,7 +415,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Qwen3] Attn: Q+K+V fused
 [Qwen3] MLP: gate+up fused
 [WeightCtx] Loaded 310 tensors, 1136.5 MB into backend
-[Store] Load TextEnc: 327 ms
+[Store] Load TextEnc: 292 ms
 [Debug] text_hidden: [70, 1024] first4: 3.652379 1.048645 0.229843 -13.063987
 [Debug] lyric_embed: [167, 1024] first4: 0.029175 0.032227 -0.022339 -0.028809
 [Store] Unload TextEnc (1136.5 MB)
@@ -869,7 +432,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Qwen3] MLP: gate+up fused
 [WeightCtx] Loaded 140 tensors, 1160.5 MB into backend
 [Load] CondEncoder: lyric(8L), timbre(4L), text_proj, null_cond
-[Store] Load CondEnc: 509 ms
+[Store] Load CondEnc: 514 ms
 [CondEnc] Lyric sliding mask: 167x167, window=128
 [CondEnc] Timbre sliding mask: 1x1, window=128
 [Encode] Packed: lyric=167 + timbre=1 + text=70 = 238 tokens
@@ -887,445 +450,15 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 CUDA Graph id 8 reused
 ggml_backend_cuda_graph_compute: CUDA graph warmup complete
 CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
 [Context] Decoded: 434 codes -> 2170 frames (86.8s @ 25Hz)
-[Build-Context Batch0] Detokenizer: 104.5 ms, 434 codes
+[Build-Context Batch0] Detokenizer: 104.2 ms, 434 codes
 [Debug] detok_output: [2170, 64] first4: -0.124076 1.434873 0.309935 -0.624868
 [Store] Unload FSQ-Detok (200.3 MB)
 [Init-Noise Batch0] Philox noise seed=42, [2170, 64] solver=euler
 [Debug] noise: [2170, 64] first4: 0.194336 2.156250 -0.171875 0.847656
 [Debug] context: [2170, 128] first4: -0.124076 1.434873 0.309935 -0.624868
 [Init-Noise] Starting: T=2170, S=1085, enc_S=238, steps=50, batch=1 (cover)
+[Dedup] Previous line repeated 432 times total
 load_backend: loaded CUDA backend from /mnt/workspace/git/acestep.cpp/build/libggml-cuda.so
 load_backend: loaded Vulkan backend from /mnt/workspace/git/acestep.cpp/build/libggml-vulkan.so
 load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libggml-cpu-zen4.so
@@ -1337,7 +470,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Load] null_condition_emb found (CFG available)
 [WeightCtx] Loaded 478 tensors, 3007.9 MB into backend
 [Load] DiT: 24 layers, H=2048, Nh=16/8, D=128
-[Store] Load DiT: 1383 ms
+[Store] Load DiT: 1367 ms
 [DiT] Batch N=1, T=2170, S=1085, enc_S=238
 [DiT] Graph: 2129 nodes
 [DiT] Solver: ODE Euler (1 NFE/step, order 1)
@@ -1367,204 +500,155 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Debug] dit_step0_vt: [2170, 64] first4: -0.571996 2.508797 -0.199864 1.467649
 [Debug] dit_step0_xt: [2170, 64] first4: 0.205776 2.106074 -0.167878 0.818303
 [DiT] Step 1/50 t=1.000
-CUDA Graph id 10 reused
 ggml_backend_cuda_graph_compute: CUDA graph warmup complete
 [Debug] dit_step1_vt: [2170, 64] first4: -0.643908 2.536289 -0.036919 1.303706
 [Debug] dit_step1_xt: [2170, 64] first4: 0.218654 2.055348 -0.167139 0.792229
 [DiT] Step 2/50 t=0.980
-CUDA Graph id 10 reused
 [Debug] dit_step2_vt: [2170, 64] first4: -0.634547 2.482462 0.004237 1.316489
 [Debug] dit_step2_xt: [2170, 64] first4: 0.231345 2.005699 -0.167224 0.765899
 [DiT] Step 3/50 t=0.960
-CUDA Graph id 10 reused
 [Debug] dit_step3_vt: [2170, 64] first4: -0.608708 2.422676 0.030588 1.330857
 [Debug] dit_step3_xt: [2170, 64] first4: 0.243519 1.957245 -0.167836 0.739282
 [DiT] Step 4/50 t=0.940
-CUDA Graph id 10 reused
 [Debug] dit_step4_vt: [2170, 64] first4: -0.575322 2.344691 0.016715 1.312309
 [Debug] dit_step4_xt: [2170, 64] first4: 0.255026 1.910352 -0.168170 0.713036
 [DiT] Step 5/50 t=0.920
-CUDA Graph id 10 reused
 [Debug] dit_step5_vt: [2170, 64] first4: -0.527935 2.266378 -0.018465 1.294902
 [Debug] dit_step5_xt: [2170, 64] first4: 0.265584 1.865024 -0.167801 0.687138
 [DiT] Step 6/50 t=0.900
-CUDA Graph id 10 reused
 [Debug] dit_step6_vt: [2170, 64] first4: -0.494518 2.219774 -0.056412 1.304790
 [Debug] dit_step6_xt: [2170, 64] first4: 0.275475 1.820629 -0.166673 0.661042
 [DiT] Step 7/50 t=0.880
-CUDA Graph id 10 reused
 [Debug] dit_step7_vt: [2170, 64] first4: -0.464647 2.158529 -0.067376 1.284886
 [Debug] dit_step7_xt: [2170, 64] first4: 0.284768 1.777458 -0.165325 0.635345
 [DiT] Step 8/50 t=0.860
-CUDA Graph id 10 reused
 [Debug] dit_step8_vt: [2170, 64] first4: -0.398470 2.068550 -0.076446 1.265460
 [Debug] dit_step8_xt: [2170, 64] first4: 0.292737 1.736087 -0.163796 0.610035
 [DiT] Step 9/50 t=0.840
-CUDA Graph id 10 reused
 [Debug] dit_step9_vt: [2170, 64] first4: -0.329856 1.970060 -0.079246 1.257954
 [Debug] dit_step9_xt: [2170, 64] first4: 0.299334 1.696686 -0.162211 0.584876
 [DiT] Step 10/50 t=0.820
-CUDA Graph id 10 reused
 [Debug] dit_step10_vt: [2170, 64] first4: -0.270426 1.882727 -0.073412 1.245764
 [Debug] dit_step10_xt: [2170, 64] first4: 0.304743 1.659031 -0.160743 0.559961
 [DiT] Step 11/50 t=0.800
-CUDA Graph id 10 reused
 [Debug] dit_step11_vt: [2170, 64] first4: -0.230661 1.821196 -0.070251 1.230668
 [Debug] dit_step11_xt: [2170, 64] first4: 0.309356 1.622607 -0.159338 0.535348
 [DiT] Step 12/50 t=0.780
-CUDA Graph id 10 reused
 [Debug] dit_step12_vt: [2170, 64] first4: -0.202197 1.742254 -0.082008 1.221778
 [Debug] dit_step12_xt: [2170, 64] first4: 0.313400 1.587762 -0.157698 0.510912
 [DiT] Step 13/50 t=0.760
-CUDA Graph id 10 reused
 [Debug] dit_step13_vt: [2170, 64] first4: -0.187175 1.662718 -0.099400 1.211713
 [Debug] dit_step13_xt: [2170, 64] first4: 0.317143 1.554508 -0.155710 0.486678
 [DiT] Step 14/50 t=0.740
-CUDA Graph id 10 reused
 [Debug] dit_step14_vt: [2170, 64] first4: -0.195148 1.586830 -0.127878 1.186867
 [Debug] dit_step14_xt: [2170, 64] first4: 0.321046 1.522771 -0.153152 0.462940
 [DiT] Step 15/50 t=0.720
-CUDA Graph id 10 reused
 [Debug] dit_step15_vt: [2170, 64] first4: -0.185748 1.508590 -0.152303 1.169394
 [Debug] dit_step15_xt: [2170, 64] first4: 0.324761 1.492599 -0.150106 0.439553
 [DiT] Step 16/50 t=0.700
-CUDA Graph id 10 reused
 [Debug] dit_step16_vt: [2170, 64] first4: -0.189975 1.434674 -0.179299 1.146571
 [Debug] dit_step16_xt: [2170, 64] first4: 0.328561 1.463906 -0.146520 0.416621
 [DiT] Step 17/50 t=0.680
-CUDA Graph id 10 reused
 [Debug] dit_step17_vt: [2170, 64] first4: -0.212099 1.360305 -0.225475 1.137322
 [Debug] dit_step17_xt: [2170, 64] first4: 0.332803 1.436700 -0.142011 0.393875
 [DiT] Step 18/50 t=0.660
-CUDA Graph id 10 reused
 [Debug] dit_step18_vt: [2170, 64] first4: -0.217397 1.271699 -0.215731 1.131443
 [Debug] dit_step18_xt: [2170, 64] first4: 0.337151 1.411266 -0.137696 0.371246
 [DiT] Step 19/50 t=0.640
-CUDA Graph id 10 reused
 [Debug] dit_step19_vt: [2170, 64] first4: -0.242558 1.193631 -0.264060 1.086225
 [Debug] dit_step19_xt: [2170, 64] first4: 0.342002 1.387393 -0.132415 0.349521
 [DiT] Step 20/50 t=0.620
-CUDA Graph id 10 reused
 [Debug] dit_step20_vt: [2170, 64] first4: -0.252331 1.112728 -0.259616 1.080052
 [Debug] dit_step20_xt: [2170, 64] first4: 0.347048 1.365139 -0.127223 0.327920
 [DiT] Step 21/50 t=0.600
-CUDA Graph id 10 reused
 [Debug] dit_step21_vt: [2170, 64] first4: -0.283331 1.019205 -0.282729 1.053011
 [Debug] dit_step21_xt: [2170, 64] first4: 0.352715 1.344754 -0.121568 0.306860
 [DiT] Step 22/50 t=0.580
-CUDA Graph id 10 reused
 [Debug] dit_step22_vt: [2170, 64] first4: -0.297697 0.911692 -0.282147 1.031529
 [Debug] dit_step22_xt: [2170, 64] first4: 0.358669 1.326521 -0.115925 0.286229
 [DiT] Step 23/50 t=0.560
-CUDA Graph id 10 reused
 [Debug] dit_step23_vt: [2170, 64] first4: -0.324512 0.810913 -0.288747 0.992839
 [Debug] dit_step23_xt: [2170, 64] first4: 0.365159 1.310302 -0.110150 0.266373
 [DiT] Step 24/50 t=0.540
-CUDA Graph id 10 reused
 [Debug] dit_step24_vt: [2170, 64] first4: -0.358477 0.700207 -0.299200 0.964821
 [Debug] dit_step24_xt: [2170, 64] first4: 0.372329 1.296298 -0.104166 0.247076
 [DiT] Step 25/50 t=0.520
-CUDA Graph id 10 reused
 [Debug] dit_step25_vt: [2170, 64] first4: -0.381883 0.601010 -0.298056 0.951873
 [Debug] dit_step25_xt: [2170, 64] first4: 0.379966 1.284278 -0.098205 0.228039
 [DiT] Step 26/50 t=0.500
-CUDA Graph id 10 reused
 [Debug] dit_step26_vt: [2170, 64] first4: -0.400225 0.467665 -0.287282 0.931475
 [Debug] dit_step26_xt: [2170, 64] first4: 0.387971 1.274925 -0.092459 0.209409
 [DiT] Step 27/50 t=0.480
-CUDA Graph id 10 reused
 [Debug] dit_step27_vt: [2170, 64] first4: -0.415849 0.359334 -0.292716 0.912017
 [Debug] dit_step27_xt: [2170, 64] first4: 0.396288 1.267738 -0.086605 0.191169
 [DiT] Step 28/50 t=0.460
-CUDA Graph id 10 reused
 [Debug] dit_step28_vt: [2170, 64] first4: -0.449091 0.246880 -0.279444 0.894237
 [Debug] dit_step28_xt: [2170, 64] first4: 0.405270 1.262801 -0.081016 0.173284
 [DiT] Step 29/50 t=0.440
-CUDA Graph id 10 reused
 [Debug] dit_step29_vt: [2170, 64] first4: -0.480181 0.129905 -0.265588 0.875099
 [Debug] dit_step29_xt: [2170, 64] first4: 0.414873 1.260202 -0.075704 0.155782
 [DiT] Step 30/50 t=0.420
-CUDA Graph id 10 reused
 [Debug] dit_step30_vt: [2170, 64] first4: -0.482887 0.005804 -0.261820 0.855353
 [Debug] dit_step30_xt: [2170, 64] first4: 0.424531 1.260086 -0.070468 0.138675
 [DiT] Step 31/50 t=0.400
-CUDA Graph id 10 reused
 [Debug] dit_step31_vt: [2170, 64] first4: -0.510049 -0.114843 -0.251913 0.828276
 [Debug] dit_step31_xt: [2170, 64] first4: 0.434732 1.262383 -0.065430 0.122110
 [DiT] Step 32/50 t=0.380
-CUDA Graph id 10 reused
 [Debug] dit_step32_vt: [2170, 64] first4: -0.520728 -0.210531 -0.236669 0.817334
 [Debug] dit_step32_xt: [2170, 64] first4: 0.445147 1.266594 -0.060696 0.105763
 [DiT] Step 33/50 t=0.360
-CUDA Graph id 10 reused
 [Debug] dit_step33_vt: [2170, 64] first4: -0.531485 -0.327356 -0.209233 0.794313
 [Debug] dit_step33_xt: [2170, 64] first4: 0.455776 1.273141 -0.056512 0.089877
 [DiT] Step 34/50 t=0.340
-CUDA Graph id 10 reused
 [Debug] dit_step34_vt: [2170, 64] first4: -0.554491 -0.423499 -0.195805 0.779239
 [Debug] dit_step34_xt: [2170, 64] first4: 0.466866 1.281611 -0.052596 0.074292
 [DiT] Step 35/50 t=0.320
-CUDA Graph id 10 reused
 [Debug] dit_step35_vt: [2170, 64] first4: -0.544407 -0.537084 -0.188109 0.742710
 [Debug] dit_step35_xt: [2170, 64] first4: 0.477754 1.292352 -0.048833 0.059438
 [DiT] Step 36/50 t=0.300
-CUDA Graph id 10 reused
 [Debug] dit_step36_vt: [2170, 64] first4: -0.551673 -0.639949 -0.152098 0.712391
 [Debug] dit_step36_xt: [2170, 64] first4: 0.488788 1.305151 -0.045791 0.045190
 [DiT] Step 37/50 t=0.280
-CUDA Graph id 10 reused
 [Debug] dit_step37_vt: [2170, 64] first4: -0.555337 -0.725967 -0.126220 0.685099
 [Debug] dit_step37_xt: [2170, 64] first4: 0.499894 1.319671 -0.043267 0.031488
 [DiT] Step 38/50 t=0.260
-CUDA Graph id 10 reused
 [Debug] dit_step38_vt: [2170, 64] first4: -0.560736 -0.797745 -0.093956 0.640889
 [Debug] dit_step38_xt: [2170, 64] first4: 0.511109 1.335626 -0.041388 0.018670
 [DiT] Step 39/50 t=0.240
-CUDA Graph id 10 reused
 [Debug] dit_step39_vt: [2170, 64] first4: -0.547260 -0.884292 -0.055918 0.604350
 [Debug] dit_step39_xt: [2170, 64] first4: 0.522054 1.353312 -0.040270 0.006583
 [DiT] Step 40/50 t=0.220
-CUDA Graph id 10 reused
 [Debug] dit_step40_vt: [2170, 64] first4: -0.543024 -0.945219 -0.034627 0.559281
 [Debug] dit_step40_xt: [2170, 64] first4: 0.532915 1.372216 -0.039577 -0.004602
 [DiT] Step 41/50 t=0.200
-CUDA Graph id 10 reused
 [Debug] dit_step41_vt: [2170, 64] first4: -0.527620 -1.012788 -0.003188 0.508355
 [Debug] dit_step41_xt: [2170, 64] first4: 0.543467 1.392472 -0.039513 -0.014769
 [DiT] Step 42/50 t=0.180
-CUDA Graph id 10 reused
 [Debug] dit_step42_vt: [2170, 64] first4: -0.517633 -1.084146 0.048687 0.463533
 [Debug] dit_step42_xt: [2170, 64] first4: 0.553820 1.414155 -0.040487 -0.024040
 [DiT] Step 43/50 t=0.160
-CUDA Graph id 10 reused
 [Debug] dit_step43_vt: [2170, 64] first4: -0.502495 -1.141670 0.085879 0.408264
 [Debug] dit_step43_xt: [2170, 64] first4: 0.563870 1.436988 -0.042205 -0.032205
 [DiT] Step 44/50 t=0.140
-CUDA Graph id 10 reused
 [Debug] dit_step44_vt: [2170, 64] first4: -0.486298 -1.167178 0.124588 0.350221
 [Debug] dit_step44_xt: [2170, 64] first4: 0.573596 1.460331 -0.044696 -0.039210
 [DiT] Step 45/50 t=0.120
-CUDA Graph id 10 reused
 [Debug] dit_step45_vt: [2170, 64] first4: -0.470233 -1.223217 0.154040 0.296348
 [Debug] dit_step45_xt: [2170, 64] first4: 0.583000 1.484796 -0.047777 -0.045137
 [DiT] Step 46/50 t=0.100
-CUDA Graph id 10 reused
 [Debug] dit_step46_vt: [2170, 64] first4: -0.438250 -1.263002 0.191674 0.239982
 [Debug] dit_step46_xt: [2170, 64] first4: 0.591765 1.510056 -0.051611 -0.049936
 [DiT] Step 47/50 t=0.080
-CUDA Graph id 10 reused
 [Debug] dit_step47_vt: [2170, 64] first4: -0.409247 -1.282963 0.216419 0.206215
 [Debug] dit_step47_xt: [2170, 64] first4: 0.599950 1.535715 -0.055939 -0.054061
 [DiT] Step 48/50 t=0.060
-CUDA Graph id 10 reused
 [Debug] dit_step48_vt: [2170, 64] first4: -0.369998 -1.318832 0.229462 0.157051
 [Debug] dit_step48_xt: [2170, 64] first4: 0.607350 1.562092 -0.060528 -0.057202
 [DiT] Step 49/50 t=0.040
-CUDA Graph id 10 reused
 [Debug] dit_step49_vt: [2170, 64] first4: -0.400588 -1.345626 0.197390 0.153967
 [Debug] dit_x0: [2170, 64] first4: 0.615362 1.589004 -0.064476 -0.060281
 [DiT] Step 50/50 t=0.020
-[DiT-Generate] Total: 1547.2 ms (1547.2 ms/sample)
+[DiT-Generate] Total: 1537.1 ms (1537.1 ms/sample)
 [Debug] dit_output: [2170, 64] first4: 0.615362 1.589004 -0.064476 -0.060281
 [Store] Unload DiT (3007.9 MB)
 [GGUF] /mnt/workspace/git/acestep.cpp/models/vae-BF16.gguf: 365 tensors, data at offset 30048
@@ -1574,32 +658,32 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Load] VAE backend: CUDA0 (CPU threads: 16)
 [VAE] Backend: CUDA0, Weight buffer: 161.1 MB
 [VAE] Loaded: 5 blocks, upsample=1920x, F32 activations
-[Store] Load VAE-Dec: 679 ms
+[Store] Load VAE-Dec: 680 ms
 [VAE] Tiled decode: 3 tiles (chunk=1024, overlap=64, stride=896)
 [VAE] Graph: 479 nodes, T_latent=960
 [VAE] Upsample factor: 1920.00 (expected ~1920)
 [VAE] Graph: 479 nodes, T_latent=1024
 [VAE] Graph: 479 nodes, T_latent=442
 [VAE] Tiled decode done: 3 tiles -> T_audio=4166400 (86.80s @ 48kHz)
-[VAE-Decode Batch0] Decode: 426.3 ms
+[VAE-Decode Batch0] Decode: 425.1 ms
 [Debug] vae_audio: [2, 4166400] first4: -0.001525 -0.000994 -0.001192 -0.000855
 [Store] Unload VAE-Dec (161.1 MB)
 [MP3] Encoding 86.8s @ 128 kbps, 48000 Hz stereo
-[MP3] 1388928 bytes (12.0:1), 402 ms (215.83x realtime), 32 threads
+[MP3] 1388928 bytes (12.0:1), 394 ms (220.49x realtime), 32 threads
 [MP3] Wrote ggml-sft/request00.mp3
 [Ace-Synth] All done
-2026-07-08 08:48:15.753 | INFO     | acestep.core.generation.handler.init_service_loader:_load_main_model_from_checkpoint:174 - [initialize_service] Attempting to load model with attention implementation: sdpa
-2026-07-08 08:48:18.423 | INFO     | acestep.core.generation.handler.generate_music:generate_music:304 - [generate_music] Starting generation...
-2026-07-08 08:48:18.423 | INFO     | acestep.core.generation.handler.generate_music:generate_music:307 - [generate_music] Preparing inputs...
-2026-07-08 08:48:18.423 | INFO     | acestep.core.generation.handler.generate_music_request:_prepare_reference_and_source_audio:179 - [generate_music] cover task: no src_audio but audio codes provided, proceeding with codes
-2026-07-08 08:48:18.427 | INFO     | acestep.core.generation.handler.generate_music:_vram_preflight_check:156 - [generate_music] VRAM pre-flight: 82.30 GB free, ~0.94 GB needed (batch=1, duration=88s, mode=turbo).
-2026-07-08 08:48:18.432 | INFO     | acestep.core.generation.handler.conditioning_target:_prepare_target_latents_and_wavs:78 - [generate_music] Decoding audio codes for item 0...
-2026-07-08 08:48:18.437 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_precomputed_lm_hints:31 - [generate_music] Decoding audio codes for LM hints for item 0...
-2026-07-08 08:48:18.439 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:119 - 
+2026-07-12 10:08:10.102 | INFO     | acestep.core.generation.handler.init_service_loader:_load_main_model_from_checkpoint:174 - [initialize_service] Attempting to load model with attention implementation: sdpa
+2026-07-12 10:08:11.247 | INFO     | acestep.core.generation.handler.generate_music:generate_music:304 - [generate_music] Starting generation...
+2026-07-12 10:08:11.247 | INFO     | acestep.core.generation.handler.generate_music:generate_music:307 - [generate_music] Preparing inputs...
+2026-07-12 10:08:11.247 | INFO     | acestep.core.generation.handler.generate_music_request:_prepare_reference_and_source_audio:179 - [generate_music] cover task: no src_audio but audio codes provided, proceeding with codes
+2026-07-12 10:08:11.250 | INFO     | acestep.core.generation.handler.generate_music:_vram_preflight_check:156 - [generate_music] VRAM pre-flight: 81.69 GB free, ~0.94 GB needed (batch=1, duration=88s, mode=turbo).
+2026-07-12 10:08:11.255 | INFO     | acestep.core.generation.handler.conditioning_target:_prepare_target_latents_and_wavs:78 - [generate_music] Decoding audio codes for item 0...
+2026-07-12 10:08:11.261 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_precomputed_lm_hints:31 - [generate_music] Decoding audio codes for LM hints for item 0...
+2026-07-12 10:08:11.263 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:119 - 
 ======================================================================
-2026-07-08 08:48:18.439 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:120 - 🔍 [DEBUG] DiT TEXT ENCODER INPUT (Inference)
-2026-07-08 08:48:18.439 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:121 - ======================================================================
-2026-07-08 08:48:18.439 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:122 - text_prompt:
+2026-07-12 10:08:11.263 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:120 - 🔍 [DEBUG] DiT TEXT ENCODER INPUT (Inference)
+2026-07-12 10:08:11.263 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:121 - ======================================================================
+2026-07-12 10:08:11.263 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:122 - text_prompt:
 # Instruction
 Generate audio semantic tokens based on the given conditions:
 
@@ -1613,8 +697,8 @@ An upbeat and anthemic pop-rock track driven by bright, slightly overdriven
 - duration: 88 seconds
 <|endoftext|>
 
-2026-07-08 08:48:18.439 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:123 - ======================================================================
-2026-07-08 08:48:18.439 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:124 - lyrics_text:
+2026-07-12 10:08:11.263 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:123 - ======================================================================
+2026-07-12 10:08:11.263 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:124 - lyrics_text:
 # Languages
 fr
 
@@ -1641,12 +725,12 @@ Dans le monde des tutos virtuels
 Gândoline, Pumbé à midi
 Une famille à connecter, c'est vrai
 D'un enfant qui voit toi fusionner<|endoftext|>
-2026-07-08 08:48:18.439 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:125 - ======================================================================
+2026-07-12 10:08:11.263 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:125 - ======================================================================
 
-2026-07-08 08:48:18.442 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:110 - [preprocess_batch] Inferring prompt embeddings...
-2026-07-08 08:48:18.451 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:113 - [preprocess_batch] Inferring lyric embeddings...
-2026-07-08 08:48:18.451 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:161 - [service_generate] Generating audio... (DiT backend: PyTorch (cuda))
-2026-07-08 08:48:18.457 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:263 - [service_generate] DiT diffusion via PyTorch (cuda)...
+2026-07-12 10:08:11.267 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:110 - [preprocess_batch] Inferring prompt embeddings...
+2026-07-12 10:08:11.275 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:113 - [preprocess_batch] Inferring lyric embeddings...
+2026-07-12 10:08:11.275 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:161 - [service_generate] Generating audio... (DiT backend: PyTorch (cuda))
+2026-07-12 10:08:11.281 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:263 - [service_generate] DiT diffusion via PyTorch (cuda)...
 [Request] Loaded request0.json
 [Turbo] steps=8, shift=3.0 | acestep-v15-turbo-BF16.gguf
 [GGML] Running acestep-v15-turbo-BF16.gguf...
@@ -1708,21 +792,21 @@ Using precomputed LM hints
 [Python] Generating (acestep-v15-sft, 50 steps)...
 Using precomputed LM hints
 Using precomputed LM hints
-  0%|          | 0/50 [00:00<?, ?it/s]2026-07-08 08:48:18.464 | INFO     | acestep.models.common.dcw_correction:__init__:98 - [DCW] Active — mode=double, scaler=0.0500, high_scaler=0.0200, wavelet='haar'
-  6%|▌         | 3/50 [00:00<00:01, 27.87it/s] 12%|█▏        | 6/50 [00:00<00:01, 28.69it/s] 18%|█▊        | 9/50 [00:00<00:01, 28.95it/s] 24%|██▍       | 12/50 [00:00<00:01, 27.52it/s] 30%|███       | 15/50 [00:00<00:01, 27.90it/s] 36%|███▌      | 18/50 [00:00<00:01, 28.31it/s] 42%|████▏     | 21/50 [00:00<00:01, 28.62it/s] 48%|████▊     | 24/50 [00:00<00:00, 28.81it/s] 54%|█████▍    | 27/50 [00:00<00:00, 28.97it/s] 60%|██████    | 30/50 [00:01<00:00, 29.07it/s] 66%|██████▌   | 33/50 [00:01<00:00, 29.13it/s] 72%|███████▏  | 36/50 [00:01<00:00, 29.17it/s] 78%|███████▊  | 39/50 [00:01<00:00, 29.20it/s] 84%|████████▍ | 42/50 [00:01<00:00, 29.24it/s] 90%|█████████ | 45/50 [00:01<00:00, 28.93it/s] 96%|█████████▌| 48/50 [00:01<00:00, 29.04it/s]100%|██████████| 50/50 [00:01<00:00, 28.83it/s]
-2026-07-08 08:48:20.199 | INFO     | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:42 - [generate_music] Model generation completed. Decoding latents...
-2026-07-08 08:48:20.199 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:64 - [generate_music] pred_latents: torch.Size([1, 2170, 64]), dtype=torch.bfloat16
-2026-07-08 08:48:20.199 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:65 - [generate_music] time_costs: {'encoder_time_cost': 0.006118297576904297, 'diffusion_time_cost': 1.7347018718719482, 'diffusion_per_step_time_cost': 0.034694037437438964, 'total_time_cost': 1.7408201694488525, 'offload_time_cost': 0.0}
-2026-07-08 08:48:20.199 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:127 - [generate_music] Decoding latents with VAE...
-2026-07-08 08:48:20.200 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:136 - [generate_music] Before VAE decode: allocated=12.12GB, max=13.41GB
-2026-07-08 08:48:20.201 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:154 - [generate_music] Effective free VRAM before VAE decode: 82.18 GB
-2026-07-08 08:48:20.201 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:172 - [generate_music] Using tiled VAE decode to reduce VRAM usage...
-2026-07-08 08:48:20.201 | DEBUG    | acestep.core.generation.handler.memory_utils:_get_auto_decode_chunk_size:108 - [_get_auto_decode_chunk_size] Effective free VRAM: 82.18 GB
-2026-07-08 08:48:20.201 | DEBUG    | acestep.core.generation.handler.memory_utils:_should_offload_wav_to_cpu:131 - [_should_offload_wav_to_cpu] Effective free VRAM: 82.18 GB
-2026-07-08 08:48:20.201 | INFO     | acestep.core.generation.handler.vae_decode:tiled_decode:56 - [tiled_decode] chunk_size=512, offload_wav_to_cpu=False, latents_shape=torch.Size([1, 64, 2170])
-2026-07-08 08:48:20.478 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:193 - [generate_music] After VAE decode: allocated=12.30GB, max=13.59GB
-2026-07-08 08:48:20.681 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:38 - [generate_music] VAE decode completed. Preparing audio tensors...
-2026-07-08 08:48:20.684 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:50 - [generate_music] Done! Generated 1 audio tensors.
+  0%|          | 0/50 [00:00<?, ?it/s]2026-07-12 10:08:11.288 | INFO     | acestep.models.common.dcw_correction:__init__:98 - [DCW] Active — mode=double, scaler=0.0500, high_scaler=0.0200, wavelet='haar'
+  6%|▌         | 3/50 [00:00<00:01, 27.86it/s] 12%|█▏        | 6/50 [00:00<00:01, 28.68it/s] 18%|█▊        | 9/50 [00:00<00:01, 28.94it/s] 24%|██▍       | 12/50 [00:00<00:01, 29.07it/s] 30%|███       | 15/50 [00:00<00:01, 29.14it/s] 36%|███▌      | 18/50 [00:00<00:01, 29.19it/s] 42%|████▏     | 21/50 [00:00<00:00, 29.23it/s] 48%|████▊     | 24/50 [00:00<00:00, 29.23it/s] 54%|█████▍    | 27/50 [00:00<00:00, 29.26it/s] 60%|██████    | 30/50 [00:01<00:00, 29.26it/s] 66%|██████▌   | 33/50 [00:01<00:00, 29.27it/s] 72%|███████▏  | 36/50 [00:01<00:00, 29.27it/s] 78%|███████▊  | 39/50 [00:01<00:00, 29.26it/s] 84%|████████▍ | 42/50 [00:01<00:00, 29.28it/s] 90%|█████████ | 45/50 [00:01<00:00, 28.72it/s] 96%|█████████▌| 48/50 [00:01<00:00, 28.90it/s]100%|██████████| 50/50 [00:01<00:00, 29.08it/s]
+2026-07-12 10:08:13.008 | INFO     | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:42 - [generate_music] Model generation completed. Decoding latents...
+2026-07-12 10:08:13.008 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:64 - [generate_music] pred_latents: torch.Size([1, 2170, 64]), dtype=torch.bfloat16
+2026-07-12 10:08:13.008 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:65 - [generate_music] time_costs: {'encoder_time_cost': 0.006113529205322266, 'diffusion_time_cost': 1.7199316024780273, 'diffusion_per_step_time_cost': 0.03439863204956055, 'total_time_cost': 1.7260451316833496, 'offload_time_cost': 0.0}
+2026-07-12 10:08:13.009 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:127 - [generate_music] Decoding latents with VAE...
+2026-07-12 10:08:13.011 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:136 - [generate_music] Before VAE decode: allocated=12.13GB, max=13.41GB
+2026-07-12 10:08:13.011 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:154 - [generate_music] Effective free VRAM before VAE decode: 81.57 GB
+2026-07-12 10:08:13.011 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:172 - [generate_music] Using tiled VAE decode to reduce VRAM usage...
+2026-07-12 10:08:13.011 | DEBUG    | acestep.core.generation.handler.memory_utils:_get_auto_decode_chunk_size:108 - [_get_auto_decode_chunk_size] Effective free VRAM: 81.57 GB
+2026-07-12 10:08:13.011 | DEBUG    | acestep.core.generation.handler.memory_utils:_should_offload_wav_to_cpu:131 - [_should_offload_wav_to_cpu] Effective free VRAM: 81.57 GB
+2026-07-12 10:08:13.011 | INFO     | acestep.core.generation.handler.vae_decode:tiled_decode:56 - [tiled_decode] chunk_size=512, offload_wav_to_cpu=False, latents_shape=torch.Size([1, 64, 2170])
+2026-07-12 10:08:13.294 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:193 - [generate_music] After VAE decode: allocated=12.30GB, max=13.59GB
+2026-07-12 10:08:13.494 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:38 - [generate_music] VAE decode completed. Preparing audio tensors...
+2026-07-12 10:08:13.497 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:50 - [generate_music] Done! Generated 1 audio tensors.
 [Request] Parsed ggml-xl-turbo/request0.json
 [Request] seed=42 lm_batch=1 synth_batch=1
 [Request] caption: An upbeat and anthemic pop-rock track driven by bright, slig...
@@ -1826,7 +910,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Qwen3] Attn: Q+K+V fused
 [Qwen3] MLP: gate+up fused
 [WeightCtx] Loaded 310 tensors, 1136.5 MB into backend
-[Store] Load TextEnc: 320 ms
+[Store] Load TextEnc: 263 ms
 [Debug] text_hidden: [70, 1024] first4: 3.652379 1.048645 0.229843 -13.063987
 [Debug] lyric_embed: [167, 1024] first4: 0.029175 0.032227 -0.022339 -0.028809
 [Store] Unload TextEnc (1136.5 MB)
@@ -1843,11 +927,11 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Qwen3] MLP: gate+up fused
 [WeightCtx] Loaded 141 tensors, 1160.5 MB into backend
 [Load] CondEncoder: lyric(8L), timbre(4L, CLS), text_proj, null_cond
-[Store] Load CondEnc: 514 ms
+[Store] Load CondEnc: 715 ms
 [CondEnc] Lyric sliding mask: 167x167, window=128
 [CondEnc] Timbre sliding mask: 2x2, window=128 (CLS)
 [Encode] Packed: lyric=167 + timbre=1 + text=70 = 238 tokens
-[Encode-Text Batch0] 70+167 tokens -> enc_S=238, 12.0 ms
+[Encode-Text Batch0] 70+167 tokens -> enc_S=238, 11.9 ms
 [Debug] enc_hidden: [238, 2048] first4: 0.685622 -0.018933 -0.051580 0.022790
 [Store] Unload CondEnc (1160.5 MB)
 load_backend: loaded CUDA backend from /mnt/workspace/git/acestep.cpp/build/libggml-cuda.so
@@ -1857,449 +941,19 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [GGUF] /mnt/workspace/git/acestep.cpp/models/acestep-v15-xl-turbo-BF16.gguf: 830 tensors, data at offset 69344
 [WeightCtx] Loaded 30 tensors, 200.3 MB into backend
 [Load] Detokenizer: FSQ(6->2048) + 2L encoder(S=5, 2048->64)
-[Store] Load FSQ-Detok: 91 ms
+[Store] Load FSQ-Detok: 122 ms
 CUDA Graph id 8 reused
 ggml_backend_cuda_graph_compute: CUDA graph warmup complete
 CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
 [Context] Decoded: 434 codes -> 2170 frames (86.8s @ 25Hz)
-[Build-Context Batch0] Detokenizer: 102.6 ms, 434 codes
+[Build-Context Batch0] Detokenizer: 103.0 ms, 434 codes
 [Debug] detok_output: [2170, 64] first4: -0.124076 1.434873 0.309935 -0.624868
 [Store] Unload FSQ-Detok (200.3 MB)
 [Init-Noise Batch0] Philox noise seed=42, [2170, 64] solver=euler
 [Debug] noise: [2170, 64] first4: 0.194336 2.156250 -0.171875 0.847656
 [Debug] context: [2170, 128] first4: -0.124076 1.434873 0.309935 -0.624868
 [Init-Noise] Starting: T=2170, S=1085, enc_S=238, steps=8, batch=1 (cover)
+[Dedup] Previous line repeated 432 times total
 load_backend: loaded CUDA backend from /mnt/workspace/git/acestep.cpp/build/libggml-cuda.so
 load_backend: loaded Vulkan backend from /mnt/workspace/git/acestep.cpp/build/libggml-vulkan.so
 load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libggml-cpu-zen4.so
@@ -2311,7 +965,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Load] null_condition_emb found (CFG available)
 [WeightCtx] Loaded 630 tensors, 7955.6 MB into backend
 [Load] DiT: 32 layers, H=2560, Nh=32/8, D=128
-[Store] Load DiT: 4404 ms
+[Store] Load DiT: 4375 ms
 [DiT] Batch N=1, T=2170, S=1085, enc_S=238
 [DiT] Graph: 2825 nodes
 [DiT] Solver: ODE Euler (1 NFE/step, order 1)
@@ -2341,36 +995,29 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Debug] dit_step0_vt: [2170, 64] first4: -1.246463 1.518559 0.394062 1.160819
 [Debug] dit_step0_xt: [2170, 64] first4: 0.250993 2.087224 -0.189787 0.794892
 [DiT] Step 1/8 t=1.000
-CUDA Graph id 10 reused
 ggml_backend_cuda_graph_compute: CUDA graph warmup complete
 [Debug] dit_step1_vt: [2170, 64] first4: -0.732804 2.505704 0.821889 1.114906
 [Debug] dit_step1_xt: [2170, 64] first4: 0.290964 1.950550 -0.234617 0.734079
 [DiT] Step 2/8 t=0.955
-CUDA Graph id 10 reused
 [Debug] dit_step2_vt: [2170, 64] first4: -1.133526 2.182483 0.953867 1.049844
 [Debug] dit_step2_xt: [2170, 64] first4: 0.366533 1.805051 -0.298208 0.664089
 [DiT] Step 3/8 t=0.900
-CUDA Graph id 10 reused
 [Debug] dit_step3_vt: [2170, 64] first4: -1.240928 2.303751 1.144955 0.553371
 [Debug] dit_step3_xt: [2170, 64] first4: 0.469944 1.613072 -0.393621 0.617975
 [DiT] Step 4/8 t=0.833
-CUDA Graph id 10 reused
 [Debug] dit_step4_vt: [2170, 64] first4: -1.149632 2.251340 1.166546 0.225735
 [Debug] dit_step4_xt: [2170, 64] first4: 0.593118 1.371857 -0.518608 0.593789
 [DiT] Step 5/8 t=0.750
-CUDA Graph id 10 reused
 [Debug] dit_step5_vt: [2170, 64] first4: -1.133823 2.250499 0.986205 1.019715
 [Debug] dit_step5_xt: [2170, 64] first4: 0.755093 1.050357 -0.659495 0.448115
 [DiT] Step 6/8 t=0.643
-CUDA Graph id 10 reused
 [Debug] dit_step6_vt: [2170, 64] first4: -0.972937 1.988650 0.639465 0.825770
 [Debug] dit_step6_xt: [2170, 64] first4: 0.949681 0.652627 -0.787388 0.282961
 [DiT] Step 7/8 t=0.500
-CUDA Graph id 10 reused
 [Debug] dit_step7_vt: [2170, 64] first4: -1.029946 1.507111 0.653788 0.531172
 [Debug] dit_x0: [2170, 64] first4: 1.258664 0.200493 -0.983524 0.123610
 [DiT] Step 8/8 t=0.300
-[DiT-Generate] Total: 647.4 ms (647.4 ms/sample)
+[DiT-Generate] Total: 645.1 ms (645.1 ms/sample)
 [Debug] dit_output: [2170, 64] first4: 1.258664 0.200493 -0.983524 0.123610
 [Store] Unload DiT (7955.6 MB)
 [GGUF] /mnt/workspace/git/acestep.cpp/models/vae-BF16.gguf: 365 tensors, data at offset 30048
@@ -2380,21 +1027,21 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Load] VAE backend: CUDA0 (CPU threads: 16)
 [VAE] Backend: CUDA0, Weight buffer: 161.1 MB
 [VAE] Loaded: 5 blocks, upsample=1920x, F32 activations
-[Store] Load VAE-Dec: 668 ms
+[Store] Load VAE-Dec: 666 ms
 [VAE] Tiled decode: 3 tiles (chunk=1024, overlap=64, stride=896)
 [VAE] Graph: 479 nodes, T_latent=960
 [VAE] Upsample factor: 1920.00 (expected ~1920)
 [VAE] Graph: 479 nodes, T_latent=1024
 [VAE] Graph: 479 nodes, T_latent=442
 [VAE] Tiled decode done: 3 tiles -> T_audio=4166400 (86.80s @ 48kHz)
-[VAE-Decode Batch0] Decode: 427.5 ms
+[VAE-Decode Batch0] Decode: 427.8 ms
 [Debug] vae_audio: [2, 4166400] first4: 0.001921 0.004688 0.004810 0.003937
 [Store] Unload VAE-Dec (161.1 MB)
 [MP3] Encoding 86.8s @ 128 kbps, 48000 Hz stereo
-[MP3] 1388928 bytes (12.0:1), 481 ms (180.52x realtime), 32 threads
+[MP3] 1388928 bytes (12.0:1), 477 ms (181.80x realtime), 32 threads
 [MP3] Wrote ggml-xl-turbo/request00.mp3
 [Ace-Synth] All done
-2026-07-08 08:48:29.475 | INFO     | acestep.core.generation.handler.init_service_loader:_load_main_model_from_checkpoint:174 - [initialize_service] Attempting to load model with attention implementation: sdpa
+2026-07-12 10:08:22.407 | INFO     | acestep.core.generation.handler.init_service_loader:_load_main_model_from_checkpoint:174 - [initialize_service] Attempting to load model with attention implementation: sdpa
 [Python] Wrote python-sft/output.wav: 4166400 samples (86.80s @ 48kHz stereo)
 [Python] Done, 166 dump files
 [SFT] Cosine similarities GGML vs Python
@@ -2454,19 +1101,19 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [GGML] Running acestep-v15-xl-turbo-BF16.gguf...
 [GGML] Done, 47 dump files
 [Python] Initializing acestep-v15-xl-turbo...
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:00<00:01,  1.53it/s]Loading checkpoint shards:  50%|█████     | 2/4 [00:01<00:01,  1.66it/s]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:02<00:00,  1.39it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:03<00:00,  1.13it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:03<00:00,  1.24it/s]
-2026-07-08 08:48:34.420 | INFO     | acestep.core.generation.handler.generate_music:generate_music:289 - [generate_music] Turbo model detected: overriding guidance_scale 0.0 -> 1.0 (turbo does not use CFG).
-2026-07-08 08:48:34.420 | INFO     | acestep.core.generation.handler.generate_music:generate_music:304 - [generate_music] Starting generation...
-2026-07-08 08:48:34.420 | INFO     | acestep.core.generation.handler.generate_music:generate_music:307 - [generate_music] Preparing inputs...
-2026-07-08 08:48:34.421 | INFO     | acestep.core.generation.handler.generate_music_request:_prepare_reference_and_source_audio:179 - [generate_music] cover task: no src_audio but audio codes provided, proceeding with codes
-2026-07-08 08:48:34.423 | INFO     | acestep.core.generation.handler.generate_music:_vram_preflight_check:156 - [generate_music] VRAM pre-flight: 77.36 GB free, ~1.23 GB needed (batch=1, duration=88s, mode=xl_turbo).
-2026-07-08 08:48:34.429 | INFO     | acestep.core.generation.handler.conditioning_target:_prepare_target_latents_and_wavs:78 - [generate_music] Decoding audio codes for item 0...
-2026-07-08 08:48:34.434 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_precomputed_lm_hints:31 - [generate_music] Decoding audio codes for LM hints for item 0...
-2026-07-08 08:48:34.436 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:119 - 
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:00<00:01,  2.91it/s]Loading checkpoint shards:  50%|█████     | 2/4 [00:00<00:00,  3.20it/s]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:00<00:00,  3.47it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:02<00:00,  1.61it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:02<00:00,  1.97it/s]
+2026-07-12 10:08:25.916 | INFO     | acestep.core.generation.handler.generate_music:generate_music:289 - [generate_music] Turbo model detected: overriding guidance_scale 0.0 -> 1.0 (turbo does not use CFG).
+2026-07-12 10:08:25.916 | INFO     | acestep.core.generation.handler.generate_music:generate_music:304 - [generate_music] Starting generation...
+2026-07-12 10:08:25.916 | INFO     | acestep.core.generation.handler.generate_music:generate_music:307 - [generate_music] Preparing inputs...
+2026-07-12 10:08:25.917 | INFO     | acestep.core.generation.handler.generate_music_request:_prepare_reference_and_source_audio:179 - [generate_music] cover task: no src_audio but audio codes provided, proceeding with codes
+2026-07-12 10:08:25.919 | INFO     | acestep.core.generation.handler.generate_music:_vram_preflight_check:156 - [generate_music] VRAM pre-flight: 76.75 GB free, ~1.23 GB needed (batch=1, duration=88s, mode=xl_turbo).
+2026-07-12 10:08:25.925 | INFO     | acestep.core.generation.handler.conditioning_target:_prepare_target_latents_and_wavs:78 - [generate_music] Decoding audio codes for item 0...
+2026-07-12 10:08:25.931 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_precomputed_lm_hints:31 - [generate_music] Decoding audio codes for LM hints for item 0...
+2026-07-12 10:08:25.933 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:119 - 
 ======================================================================
-2026-07-08 08:48:34.436 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:120 - 🔍 [DEBUG] DiT TEXT ENCODER INPUT (Inference)
-2026-07-08 08:48:34.436 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:121 - ======================================================================
-2026-07-08 08:48:34.436 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:122 - text_prompt:
+2026-07-12 10:08:25.933 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:120 - 🔍 [DEBUG] DiT TEXT ENCODER INPUT (Inference)
+2026-07-12 10:08:25.933 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:121 - ======================================================================
+2026-07-12 10:08:25.933 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:122 - text_prompt:
 # Instruction
 Generate audio semantic tokens based on the given conditions:
 
@@ -2480,8 +1127,8 @@ An upbeat and anthemic pop-rock track driven by bright, slightly overdriven
 - duration: 88 seconds
 <|endoftext|>
 
-2026-07-08 08:48:34.436 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:123 - ======================================================================
-2026-07-08 08:48:34.436 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:124 - lyrics_text:
+2026-07-12 10:08:25.933 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:123 - ======================================================================
+2026-07-12 10:08:25.933 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:124 - lyrics_text:
 # Languages
 fr
 
@@ -2508,26 +1155,26 @@ Dans le monde des tutos virtuels
 Gândoline, Pumbé à midi
 Une famille à connecter, c'est vrai
 D'un enfant qui voit toi fusionner<|endoftext|>
-2026-07-08 08:48:34.436 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:125 - ======================================================================
+2026-07-12 10:08:25.933 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:125 - ======================================================================
 
-2026-07-08 08:48:34.440 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:110 - [preprocess_batch] Inferring prompt embeddings...
-2026-07-08 08:48:34.447 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:113 - [preprocess_batch] Inferring lyric embeddings...
-2026-07-08 08:48:34.447 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:161 - [service_generate] Generating audio... (DiT backend: PyTorch (cuda))
-2026-07-08 08:48:34.454 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:263 - [service_generate] DiT diffusion via PyTorch (cuda)...
-2026-07-08 08:48:34.461 | INFO     | acestep.models.common.dcw_correction:__init__:98 - [DCW] Active — mode=double, scaler=0.0500, high_scaler=0.0200, wavelet='haar'
-2026-07-08 08:48:35.010 | INFO     | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:42 - [generate_music] Model generation completed. Decoding latents...
-2026-07-08 08:48:35.011 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:64 - [generate_music] pred_latents: torch.Size([1, 2170, 64]), dtype=torch.bfloat16
-2026-07-08 08:48:35.011 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:65 - [generate_music] time_costs: {'encoder_time_cost': 0.006728410720825195, 'diffusion_time_cost': 0.5485317707061768, 'diffusion_per_step_time_cost': 0.0685664713382721, 'total_time_cost': 0.555260181427002, 'offload_time_cost': 0.0}
-2026-07-08 08:48:35.033 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:127 - [generate_music] Decoding latents with VAE...
-2026-07-08 08:48:35.034 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:136 - [generate_music] Before VAE decode: allocated=17.03GB, max=18.34GB
-2026-07-08 08:48:35.034 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:154 - [generate_music] Effective free VRAM before VAE decode: 77.27 GB
-2026-07-08 08:48:35.034 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:172 - [generate_music] Using tiled VAE decode to reduce VRAM usage...
-2026-07-08 08:48:35.035 | DEBUG    | acestep.core.generation.handler.memory_utils:_get_auto_decode_chunk_size:108 - [_get_auto_decode_chunk_size] Effective free VRAM: 77.27 GB
-2026-07-08 08:48:35.035 | DEBUG    | acestep.core.generation.handler.memory_utils:_should_offload_wav_to_cpu:131 - [_should_offload_wav_to_cpu] Effective free VRAM: 77.27 GB
-2026-07-08 08:48:35.035 | INFO     | acestep.core.generation.handler.vae_decode:tiled_decode:56 - [tiled_decode] chunk_size=512, offload_wav_to_cpu=False, latents_shape=torch.Size([1, 64, 2170])
-2026-07-08 08:48:35.306 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:193 - [generate_music] After VAE decode: allocated=17.21GB, max=18.50GB
-2026-07-08 08:48:35.513 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:38 - [generate_music] VAE decode completed. Preparing audio tensors...
-2026-07-08 08:48:35.517 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:50 - [generate_music] Done! Generated 1 audio tensors.
+2026-07-12 10:08:25.936 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:110 - [preprocess_batch] Inferring prompt embeddings...
+2026-07-12 10:08:25.945 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:113 - [preprocess_batch] Inferring lyric embeddings...
+2026-07-12 10:08:25.945 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:161 - [service_generate] Generating audio... (DiT backend: PyTorch (cuda))
+2026-07-12 10:08:25.951 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:263 - [service_generate] DiT diffusion via PyTorch (cuda)...
+2026-07-12 10:08:25.958 | INFO     | acestep.models.common.dcw_correction:__init__:98 - [DCW] Active — mode=double, scaler=0.0500, high_scaler=0.0200, wavelet='haar'
+2026-07-12 10:08:26.505 | INFO     | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:42 - [generate_music] Model generation completed. Decoding latents...
+2026-07-12 10:08:26.506 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:64 - [generate_music] pred_latents: torch.Size([1, 2170, 64]), dtype=torch.bfloat16
+2026-07-12 10:08:26.506 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:65 - [generate_music] time_costs: {'encoder_time_cost': 0.006401538848876953, 'diffusion_time_cost': 0.5472762584686279, 'diffusion_per_step_time_cost': 0.06840953230857849, 'total_time_cost': 0.5536777973175049, 'offload_time_cost': 0.0}
+2026-07-12 10:08:26.529 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:127 - [generate_music] Decoding latents with VAE...
+2026-07-12 10:08:26.531 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:136 - [generate_music] Before VAE decode: allocated=17.04GB, max=18.34GB
+2026-07-12 10:08:26.532 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:154 - [generate_music] Effective free VRAM before VAE decode: 76.66 GB
+2026-07-12 10:08:26.532 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:172 - [generate_music] Using tiled VAE decode to reduce VRAM usage...
+2026-07-12 10:08:26.532 | DEBUG    | acestep.core.generation.handler.memory_utils:_get_auto_decode_chunk_size:108 - [_get_auto_decode_chunk_size] Effective free VRAM: 76.66 GB
+2026-07-12 10:08:26.532 | DEBUG    | acestep.core.generation.handler.memory_utils:_should_offload_wav_to_cpu:131 - [_should_offload_wav_to_cpu] Effective free VRAM: 76.66 GB
+2026-07-12 10:08:26.532 | INFO     | acestep.core.generation.handler.vae_decode:tiled_decode:56 - [tiled_decode] chunk_size=512, offload_wav_to_cpu=False, latents_shape=torch.Size([1, 64, 2170])
+2026-07-12 10:08:26.807 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:193 - [generate_music] After VAE decode: allocated=17.21GB, max=18.50GB
+2026-07-12 10:08:27.008 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:38 - [generate_music] VAE decode completed. Preparing audio tensors...
+2026-07-12 10:08:27.011 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:50 - [generate_music] Done! Generated 1 audio tensors.
 [Request] Parsed ggml-xl-sft/request0.json
 [Request] seed=42 lm_batch=1 synth_batch=1
 [Request] caption: An upbeat and anthemic pop-rock track driven by bright, slig...
@@ -2631,7 +1278,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Qwen3] Attn: Q+K+V fused
 [Qwen3] MLP: gate+up fused
 [WeightCtx] Loaded 310 tensors, 1136.5 MB into backend
-[Store] Load TextEnc: 611 ms
+[Store] Load TextEnc: 279 ms
 [Debug] text_hidden: [70, 1024] first4: 3.652379 1.048645 0.229843 -13.063987
 [Debug] lyric_embed: [167, 1024] first4: 0.029175 0.032227 -0.022339 -0.028809
 [Store] Unload TextEnc (1136.5 MB)
@@ -2648,11 +1295,11 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Qwen3] MLP: gate+up fused
 [WeightCtx] Loaded 141 tensors, 1160.5 MB into backend
 [Load] CondEncoder: lyric(8L), timbre(4L, CLS), text_proj, null_cond
-[Store] Load CondEnc: 531 ms
+[Store] Load CondEnc: 541 ms
 [CondEnc] Lyric sliding mask: 167x167, window=128
 [CondEnc] Timbre sliding mask: 2x2, window=128 (CLS)
 [Encode] Packed: lyric=167 + timbre=1 + text=70 = 238 tokens
-[Encode-Text Batch0] 70+167 tokens -> enc_S=238, 11.3 ms
+[Encode-Text Batch0] 70+167 tokens -> enc_S=238, 11.0 ms
 [Debug] enc_hidden: [238, 2048] first4: 0.685622 -0.018933 -0.051580 0.022790
 [Store] Unload CondEnc (1160.5 MB)
 load_backend: loaded CUDA backend from /mnt/workspace/git/acestep.cpp/build/libggml-cuda.so
@@ -2666,445 +1313,15 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 CUDA Graph id 8 reused
 ggml_backend_cuda_graph_compute: CUDA graph warmup complete
 CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
-CUDA Graph id 8 reused
 [Context] Decoded: 434 codes -> 2170 frames (86.8s @ 25Hz)
-[Build-Context Batch0] Detokenizer: 103.5 ms, 434 codes
+[Build-Context Batch0] Detokenizer: 102.2 ms, 434 codes
 [Debug] detok_output: [2170, 64] first4: -0.124076 1.434873 0.309935 -0.624868
 [Store] Unload FSQ-Detok (200.3 MB)
 [Init-Noise Batch0] Philox noise seed=42, [2170, 64] solver=euler
 [Debug] noise: [2170, 64] first4: 0.194336 2.156250 -0.171875 0.847656
 [Debug] context: [2170, 128] first4: -0.124076 1.434873 0.309935 -0.624868
 [Init-Noise] Starting: T=2170, S=1085, enc_S=238, steps=50, batch=1 (cover)
+[Dedup] Previous line repeated 432 times total
 load_backend: loaded CUDA backend from /mnt/workspace/git/acestep.cpp/build/libggml-cuda.so
 load_backend: loaded Vulkan backend from /mnt/workspace/git/acestep.cpp/build/libggml-vulkan.so
 load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libggml-cpu-zen4.so
@@ -3116,7 +1333,7 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Load] null_condition_emb found (CFG available)
 [WeightCtx] Loaded 630 tensors, 7955.6 MB into backend
 [Load] DiT: 32 layers, H=2560, Nh=32/8, D=128
-[Store] Load DiT: 3992 ms
+[Store] Load DiT: 3959 ms
 [DiT] Batch N=1, T=2170, S=1085, enc_S=238
 [DiT] Graph: 2825 nodes
 [DiT] Solver: ODE Euler (1 NFE/step, order 1)
@@ -3146,204 +1363,155 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Debug] dit_step0_vt: [2170, 64] first4: -0.316202 2.209554 0.016607 1.703432
 [Debug] dit_step0_xt: [2170, 64] first4: 0.200660 2.112059 -0.172207 0.813588
 [DiT] Step 1/50 t=1.000
-CUDA Graph id 10 reused
 ggml_backend_cuda_graph_compute: CUDA graph warmup complete
 [Debug] dit_step1_vt: [2170, 64] first4: -0.343204 2.130481 0.072172 1.557741
 [Debug] dit_step1_xt: [2170, 64] first4: 0.207524 2.069449 -0.173651 0.782433
 [DiT] Step 2/50 t=0.980
-CUDA Graph id 10 reused
 [Debug] dit_step2_vt: [2170, 64] first4: -0.323388 2.172076 0.050186 1.584516
 [Debug] dit_step2_xt: [2170, 64] first4: 0.213992 2.026008 -0.174654 0.750742
 [DiT] Step 3/50 t=0.960
-CUDA Graph id 10 reused
 [Debug] dit_step3_vt: [2170, 64] first4: -0.278304 2.133125 0.037878 1.578382
 [Debug] dit_step3_xt: [2170, 64] first4: 0.219558 1.983345 -0.175412 0.719175
 [DiT] Step 4/50 t=0.940
-CUDA Graph id 10 reused
 [Debug] dit_step4_vt: [2170, 64] first4: -0.267278 2.069202 0.015467 1.591200
 [Debug] dit_step4_xt: [2170, 64] first4: 0.224903 1.941961 -0.175721 0.687351
 [DiT] Step 5/50 t=0.920
-CUDA Graph id 10 reused
 [Debug] dit_step5_vt: [2170, 64] first4: -0.263141 2.050870 0.022551 1.596046
 [Debug] dit_step5_xt: [2170, 64] first4: 0.230166 1.900944 -0.176172 0.655430
 [DiT] Step 6/50 t=0.900
-CUDA Graph id 10 reused
 [Debug] dit_step6_vt: [2170, 64] first4: -0.251216 2.023096 0.060205 1.618396
 [Debug] dit_step6_xt: [2170, 64] first4: 0.235191 1.860482 -0.177376 0.623062
 [DiT] Step 7/50 t=0.880
-CUDA Graph id 10 reused
 [Debug] dit_step7_vt: [2170, 64] first4: -0.250367 1.985753 0.107183 1.622868
 [Debug] dit_step7_xt: [2170, 64] first4: 0.240198 1.820767 -0.179520 0.590605
 [DiT] Step 8/50 t=0.860
-CUDA Graph id 10 reused
 [Debug] dit_step8_vt: [2170, 64] first4: -0.262136 1.932814 0.132220 1.619447
 [Debug] dit_step8_xt: [2170, 64] first4: 0.245441 1.782110 -0.182164 0.558216
 [DiT] Step 9/50 t=0.840
-CUDA Graph id 10 reused
 [Debug] dit_step9_vt: [2170, 64] first4: -0.293373 1.881742 0.120795 1.615607
 [Debug] dit_step9_xt: [2170, 64] first4: 0.251308 1.744475 -0.184580 0.525904
 [DiT] Step 10/50 t=0.820
-CUDA Graph id 10 reused
 [Debug] dit_step10_vt: [2170, 64] first4: -0.296031 1.837028 0.113188 1.602298
 [Debug] dit_step10_xt: [2170, 64] first4: 0.257229 1.707735 -0.186844 0.493858
 [DiT] Step 11/50 t=0.800
-CUDA Graph id 10 reused
 [Debug] dit_step11_vt: [2170, 64] first4: -0.291505 1.785168 0.100330 1.587226
 [Debug] dit_step11_xt: [2170, 64] first4: 0.263059 1.672032 -0.188851 0.462113
 [DiT] Step 12/50 t=0.780
-CUDA Graph id 10 reused
 [Debug] dit_step12_vt: [2170, 64] first4: -0.287889 1.743116 0.091006 1.586907
 [Debug] dit_step12_xt: [2170, 64] first4: 0.268817 1.637169 -0.190671 0.430375
 [DiT] Step 13/50 t=0.760
-CUDA Graph id 10 reused
 [Debug] dit_step13_vt: [2170, 64] first4: -0.284759 1.682417 0.072042 1.565709
 [Debug] dit_step13_xt: [2170, 64] first4: 0.274512 1.603521 -0.192112 0.399061
 [DiT] Step 14/50 t=0.740
-CUDA Graph id 10 reused
 [Debug] dit_step14_vt: [2170, 64] first4: -0.278153 1.631876 0.059444 1.565421
 [Debug] dit_step14_xt: [2170, 64] first4: 0.280075 1.570883 -0.193300 0.367752
 [DiT] Step 15/50 t=0.720
-CUDA Graph id 10 reused
 [Debug] dit_step15_vt: [2170, 64] first4: -0.261671 1.582477 0.032380 1.561401
 [Debug] dit_step15_xt: [2170, 64] first4: 0.285308 1.539234 -0.193948 0.336524
 [DiT] Step 16/50 t=0.700
-CUDA Graph id 10 reused
 [Debug] dit_step16_vt: [2170, 64] first4: -0.244664 1.540197 0.015157 1.554451
 [Debug] dit_step16_xt: [2170, 64] first4: 0.290202 1.508430 -0.194251 0.305435
 [DiT] Step 17/50 t=0.680
-CUDA Graph id 10 reused
 [Debug] dit_step17_vt: [2170, 64] first4: -0.222339 1.488901 -0.002147 1.539411
 [Debug] dit_step17_xt: [2170, 64] first4: 0.294648 1.478652 -0.194208 0.274647
 [DiT] Step 18/50 t=0.660
-CUDA Graph id 10 reused
 [Debug] dit_step18_vt: [2170, 64] first4: -0.184409 1.442553 -0.011353 1.540462
 [Debug] dit_step18_xt: [2170, 64] first4: 0.298337 1.449801 -0.193981 0.243838
 [DiT] Step 19/50 t=0.640
-CUDA Graph id 10 reused
 [Debug] dit_step19_vt: [2170, 64] first4: -0.162454 1.392205 -0.021457 1.525675
 [Debug] dit_step19_xt: [2170, 64] first4: 0.301586 1.421957 -0.193552 0.213324
 [DiT] Step 20/50 t=0.620
-CUDA Graph id 10 reused
 [Debug] dit_step20_vt: [2170, 64] first4: -0.119116 1.348247 -0.029730 1.518041
 [Debug] dit_step20_xt: [2170, 64] first4: 0.303968 1.394992 -0.192957 0.182964
 [DiT] Step 21/50 t=0.600
-CUDA Graph id 10 reused
 [Debug] dit_step21_vt: [2170, 64] first4: -0.091729 1.289829 -0.037363 1.503773
 [Debug] dit_step21_xt: [2170, 64] first4: 0.305803 1.369195 -0.192210 0.152888
 [DiT] Step 22/50 t=0.580
-CUDA Graph id 10 reused
 [Debug] dit_step22_vt: [2170, 64] first4: -0.070102 1.241824 -0.049521 1.496528
 [Debug] dit_step22_xt: [2170, 64] first4: 0.307205 1.344359 -0.191220 0.122957
 [DiT] Step 23/50 t=0.560
-CUDA Graph id 10 reused
 [Debug] dit_step23_vt: [2170, 64] first4: -0.050569 1.191121 -0.063131 1.485620
 [Debug] dit_step23_xt: [2170, 64] first4: 0.308216 1.320536 -0.189957 0.093245
 [DiT] Step 24/50 t=0.540
-CUDA Graph id 10 reused
 [Debug] dit_step24_vt: [2170, 64] first4: -0.041034 1.137858 -0.071927 1.475013
 [Debug] dit_step24_xt: [2170, 64] first4: 0.309037 1.297779 -0.188519 0.063745
 [DiT] Step 25/50 t=0.520
-CUDA Graph id 10 reused
 [Debug] dit_step25_vt: [2170, 64] first4: -0.029203 1.082175 -0.078827 1.440275
 [Debug] dit_step25_xt: [2170, 64] first4: 0.309621 1.276136 -0.186942 0.034939
 [DiT] Step 26/50 t=0.500
-CUDA Graph id 10 reused
 [Debug] dit_step26_vt: [2170, 64] first4: -0.026016 1.028872 -0.089483 1.424736
 [Debug] dit_step26_xt: [2170, 64] first4: 0.310141 1.255558 -0.185152 0.006445
 [DiT] Step 27/50 t=0.480
-CUDA Graph id 10 reused
 [Debug] dit_step27_vt: [2170, 64] first4: -0.032095 0.958167 -0.099371 1.404521
 [Debug] dit_step27_xt: [2170, 64] first4: 0.310783 1.236395 -0.183165 -0.021646
 [DiT] Step 28/50 t=0.460
-CUDA Graph id 10 reused
 [Debug] dit_step28_vt: [2170, 64] first4: -0.041671 0.897095 -0.111367 1.387364
 [Debug] dit_step28_xt: [2170, 64] first4: 0.311616 1.218453 -0.180938 -0.049393
 [DiT] Step 29/50 t=0.440
-CUDA Graph id 10 reused
 [Debug] dit_step29_vt: [2170, 64] first4: -0.048523 0.825854 -0.122376 1.355994
 [Debug] dit_step29_xt: [2170, 64] first4: 0.312587 1.201936 -0.178490 -0.076513
 [DiT] Step 30/50 t=0.420
-CUDA Graph id 10 reused
 [Debug] dit_step30_vt: [2170, 64] first4: -0.067228 0.743517 -0.146208 1.339129
 [Debug] dit_step30_xt: [2170, 64] first4: 0.313931 1.187065 -0.175566 -0.103296
 [DiT] Step 31/50 t=0.400
-CUDA Graph id 10 reused
 [Debug] dit_step31_vt: [2170, 64] first4: -0.076558 0.672226 -0.148805 1.307325
 [Debug] dit_step31_xt: [2170, 64] first4: 0.315462 1.173621 -0.172590 -0.129442
 [DiT] Step 32/50 t=0.380
-CUDA Graph id 10 reused
 [Debug] dit_step32_vt: [2170, 64] first4: -0.100921 0.575673 -0.176446 1.269109
 [Debug] dit_step32_xt: [2170, 64] first4: 0.317481 1.162107 -0.169061 -0.154824
 [DiT] Step 33/50 t=0.360
-CUDA Graph id 10 reused
 [Debug] dit_step33_vt: [2170, 64] first4: -0.112492 0.489739 -0.170804 1.252692
 [Debug] dit_step33_xt: [2170, 64] first4: 0.319731 1.152313 -0.165645 -0.179878
 [DiT] Step 34/50 t=0.340
-CUDA Graph id 10 reused
 [Debug] dit_step34_vt: [2170, 64] first4: -0.133039 0.409635 -0.177201 1.214676
 [Debug] dit_step34_xt: [2170, 64] first4: 0.322392 1.144120 -0.162101 -0.204172
 [DiT] Step 35/50 t=0.320
-CUDA Graph id 10 reused
 [Debug] dit_step35_vt: [2170, 64] first4: -0.157808 0.312022 -0.175914 1.201879
 [Debug] dit_step35_xt: [2170, 64] first4: 0.325548 1.137880 -0.158583 -0.228209
 [DiT] Step 36/50 t=0.300
-CUDA Graph id 10 reused
 [Debug] dit_step36_vt: [2170, 64] first4: -0.176505 0.211753 -0.163521 1.156443
 [Debug] dit_step36_xt: [2170, 64] first4: 0.329078 1.133645 -0.155312 -0.251338
 [DiT] Step 37/50 t=0.280
-CUDA Graph id 10 reused
 [Debug] dit_step37_vt: [2170, 64] first4: -0.170152 0.106741 -0.151048 1.120881
 [Debug] dit_step37_xt: [2170, 64] first4: 0.332481 1.131510 -0.152291 -0.273756
 [DiT] Step 38/50 t=0.260
-CUDA Graph id 10 reused
 [Debug] dit_step38_vt: [2170, 64] first4: -0.171724 0.014132 -0.146436 1.076355
 [Debug] dit_step38_xt: [2170, 64] first4: 0.335915 1.131227 -0.149362 -0.295283
 [DiT] Step 39/50 t=0.240
-CUDA Graph id 10 reused
 [Debug] dit_step39_vt: [2170, 64] first4: -0.194143 -0.099352 -0.128456 1.053998
 [Debug] dit_step39_xt: [2170, 64] first4: 0.339798 1.133214 -0.146793 -0.316363
 [DiT] Step 40/50 t=0.220
-CUDA Graph id 10 reused
 [Debug] dit_step40_vt: [2170, 64] first4: -0.227044 -0.210392 -0.126014 1.001273
 [Debug] dit_step40_xt: [2170, 64] first4: 0.344339 1.137422 -0.144273 -0.336388
 [DiT] Step 41/50 t=0.200
-CUDA Graph id 10 reused
 [Debug] dit_step41_vt: [2170, 64] first4: -0.253378 -0.300455 -0.097250 0.965406
 [Debug] dit_step41_xt: [2170, 64] first4: 0.349407 1.143431 -0.142328 -0.355696
 [DiT] Step 42/50 t=0.180
-CUDA Graph id 10 reused
 [Debug] dit_step42_vt: [2170, 64] first4: -0.265390 -0.396163 -0.060336 0.917468
 [Debug] dit_step42_xt: [2170, 64] first4: 0.354714 1.151354 -0.141121 -0.374046
 [DiT] Step 43/50 t=0.160
-CUDA Graph id 10 reused
 [Debug] dit_step43_vt: [2170, 64] first4: -0.295512 -0.494991 -0.042881 0.871955
 [Debug] dit_step43_xt: [2170, 64] first4: 0.360625 1.161254 -0.140264 -0.391485
 [DiT] Step 44/50 t=0.140
-CUDA Graph id 10 reused
 [Debug] dit_step44_vt: [2170, 64] first4: -0.313489 -0.586699 0.022644 0.813441
 [Debug] dit_step44_xt: [2170, 64] first4: 0.366894 1.172988 -0.140717 -0.407753
 [DiT] Step 45/50 t=0.120
-CUDA Graph id 10 reused
 [Debug] dit_step45_vt: [2170, 64] first4: -0.351881 -0.658069 0.069285 0.750789
 [Debug] dit_step45_xt: [2170, 64] first4: 0.373932 1.186150 -0.142102 -0.422769
 [DiT] Step 46/50 t=0.100
-CUDA Graph id 10 reused
 [Debug] dit_step46_vt: [2170, 64] first4: -0.402397 -0.726261 0.104158 0.707855
 [Debug] dit_step46_xt: [2170, 64] first4: 0.381980 1.200675 -0.144185 -0.436926
 [DiT] Step 47/50 t=0.080
-CUDA Graph id 10 reused
 [Debug] dit_step47_vt: [2170, 64] first4: -0.441808 -0.807912 0.180271 0.671096
 [Debug] dit_step47_xt: [2170, 64] first4: 0.390816 1.216833 -0.147791 -0.450348
 [DiT] Step 48/50 t=0.060
-CUDA Graph id 10 reused
 [Debug] dit_step48_vt: [2170, 64] first4: -0.497726 -0.866669 0.246025 0.663294
 [Debug] dit_step48_xt: [2170, 64] first4: 0.400771 1.234167 -0.152711 -0.463614
 [DiT] Step 49/50 t=0.040
-CUDA Graph id 10 reused
 [Debug] dit_step49_vt: [2170, 64] first4: -0.502782 -0.851709 0.169530 0.674803
 [Debug] dit_x0: [2170, 64] first4: 0.410826 1.251201 -0.156102 -0.477110
 [DiT] Step 50/50 t=0.020
-[DiT-Generate] Total: 3800.6 ms (3800.6 ms/sample)
+[DiT-Generate] Total: 3788.4 ms (3788.4 ms/sample)
 [Debug] dit_output: [2170, 64] first4: 0.410826 1.251201 -0.156102 -0.477110
 [Store] Unload DiT (7955.6 MB)
 [GGUF] /mnt/workspace/git/acestep.cpp/models/vae-BF16.gguf: 365 tensors, data at offset 30048
@@ -3353,21 +1521,21 @@ load_backend: loaded CPU backend from /mnt/workspace/git/acestep.cpp/build/libgg
 [Load] VAE backend: CUDA0 (CPU threads: 16)
 [VAE] Backend: CUDA0, Weight buffer: 161.1 MB
 [VAE] Loaded: 5 blocks, upsample=1920x, F32 activations
-[Store] Load VAE-Dec: 717 ms
+[Store] Load VAE-Dec: 691 ms
 [VAE] Tiled decode: 3 tiles (chunk=1024, overlap=64, stride=896)
 [VAE] Graph: 479 nodes, T_latent=960
 [VAE] Upsample factor: 1920.00 (expected ~1920)
 [VAE] Graph: 479 nodes, T_latent=1024
 [VAE] Graph: 479 nodes, T_latent=442
 [VAE] Tiled decode done: 3 tiles -> T_audio=4166400 (86.80s @ 48kHz)
-[VAE-Decode Batch0] Decode: 426.9 ms
+[VAE-Decode Batch0] Decode: 426.3 ms
 [Debug] vae_audio: [2, 4166400] first4: -0.001300 -0.000621 -0.000706 -0.000205
 [Store] Unload VAE-Dec (161.1 MB)
 [MP3] Encoding 86.8s @ 128 kbps, 48000 Hz stereo
-[MP3] 1388928 bytes (12.0:1), 415 ms (208.93x realtime), 32 threads
+[MP3] 1388928 bytes (12.0:1), 426 ms (203.76x realtime), 32 threads
 [MP3] Wrote ggml-xl-sft/request00.mp3
 [Ace-Synth] All done
-2026-07-08 08:48:47.428 | INFO     | acestep.core.generation.handler.init_service_loader:_load_main_model_from_checkpoint:174 - [initialize_service] Attempting to load model with attention implementation: sdpa
+2026-07-12 10:08:38.502 | INFO     | acestep.core.generation.handler.init_service_loader:_load_main_model_from_checkpoint:174 - [initialize_service] Attempting to load model with attention implementation: sdpa
 [Python] Generating (acestep-v15-xl-turbo, 8 steps)...
 Using precomputed LM hints
 Using precomputed LM hints
@@ -3421,18 +1589,18 @@ Using precomputed LM hints
 [GGML] Running acestep-v15-xl-sft-BF16.gguf...
 [GGML] Done, 131 dump files
 [Python] Initializing acestep-v15-xl-sft...
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:00<00:02,  1.08it/s]Loading checkpoint shards:  50%|█████     | 2/4 [00:01<00:01,  1.07it/s]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:02<00:00,  1.24it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:02<00:00,  1.63it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:02<00:00,  1.41it/s]
-2026-07-08 08:48:51.910 | INFO     | acestep.core.generation.handler.generate_music:generate_music:304 - [generate_music] Starting generation...
-2026-07-08 08:48:51.910 | INFO     | acestep.core.generation.handler.generate_music:generate_music:307 - [generate_music] Preparing inputs...
-2026-07-08 08:48:51.911 | INFO     | acestep.core.generation.handler.generate_music_request:_prepare_reference_and_source_audio:179 - [generate_music] cover task: no src_audio but audio codes provided, proceeding with codes
-2026-07-08 08:48:51.915 | INFO     | acestep.core.generation.handler.generate_music:_vram_preflight_check:156 - [generate_music] VRAM pre-flight: 72.48 GB free, ~1.23 GB needed (batch=1, duration=88s, mode=xl_turbo).
-2026-07-08 08:48:51.920 | INFO     | acestep.core.generation.handler.conditioning_target:_prepare_target_latents_and_wavs:78 - [generate_music] Decoding audio codes for item 0...
-2026-07-08 08:48:51.925 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_precomputed_lm_hints:31 - [generate_music] Decoding audio codes for LM hints for item 0...
-2026-07-08 08:48:51.926 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:119 - 
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:00<00:02,  1.00it/s]Loading checkpoint shards:  50%|█████     | 2/4 [00:01<00:01,  1.16it/s]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:02<00:00,  1.18it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:03<00:00,  1.46it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:03<00:00,  1.32it/s]
+2026-07-12 10:08:43.167 | INFO     | acestep.core.generation.handler.generate_music:generate_music:304 - [generate_music] Starting generation...
+2026-07-12 10:08:43.167 | INFO     | acestep.core.generation.handler.generate_music:generate_music:307 - [generate_music] Preparing inputs...
+2026-07-12 10:08:43.167 | INFO     | acestep.core.generation.handler.generate_music_request:_prepare_reference_and_source_audio:179 - [generate_music] cover task: no src_audio but audio codes provided, proceeding with codes
+2026-07-12 10:08:43.171 | INFO     | acestep.core.generation.handler.generate_music:_vram_preflight_check:156 - [generate_music] VRAM pre-flight: 71.86 GB free, ~1.23 GB needed (batch=1, duration=88s, mode=xl_turbo).
+2026-07-12 10:08:43.176 | INFO     | acestep.core.generation.handler.conditioning_target:_prepare_target_latents_and_wavs:78 - [generate_music] Decoding audio codes for item 0...
+2026-07-12 10:08:43.182 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_precomputed_lm_hints:31 - [generate_music] Decoding audio codes for LM hints for item 0...
+2026-07-12 10:08:43.183 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:119 - 
 ======================================================================
-2026-07-08 08:48:51.927 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:120 - 🔍 [DEBUG] DiT TEXT ENCODER INPUT (Inference)
-2026-07-08 08:48:51.927 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:121 - ======================================================================
-2026-07-08 08:48:51.927 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:122 - text_prompt:
+2026-07-12 10:08:43.183 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:120 - 🔍 [DEBUG] DiT TEXT ENCODER INPUT (Inference)
+2026-07-12 10:08:43.183 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:121 - ======================================================================
+2026-07-12 10:08:43.183 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:122 - text_prompt:
 # Instruction
 Generate audio semantic tokens based on the given conditions:
 
@@ -3446,8 +1614,8 @@ An upbeat and anthemic pop-rock track driven by bright, slightly overdriven
 - duration: 88 seconds
 <|endoftext|>
 
-2026-07-08 08:48:51.927 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:123 - ======================================================================
-2026-07-08 08:48:51.927 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:124 - lyrics_text:
+2026-07-12 10:08:43.183 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:123 - ======================================================================
+2026-07-12 10:08:43.183 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:124 - lyrics_text:
 # Languages
 fr
 
@@ -3474,30 +1642,30 @@ Dans le monde des tutos virtuels
 Gândoline, Pumbé à midi
 Une famille à connecter, c'est vrai
 D'un enfant qui voit toi fusionner<|endoftext|>
-2026-07-08 08:48:51.927 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:125 - ======================================================================
+2026-07-12 10:08:43.183 | INFO     | acestep.core.generation.handler.conditioning_text:_prepare_text_conditioning_inputs:125 - ======================================================================
 
-2026-07-08 08:48:51.930 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:110 - [preprocess_batch] Inferring prompt embeddings...
-2026-07-08 08:48:51.938 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:113 - [preprocess_batch] Inferring lyric embeddings...
-2026-07-08 08:48:51.939 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:161 - [service_generate] Generating audio... (DiT backend: PyTorch (cuda))
-2026-07-08 08:48:51.945 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:263 - [service_generate] DiT diffusion via PyTorch (cuda)...
+2026-07-12 10:08:43.187 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:110 - [preprocess_batch] Inferring prompt embeddings...
+2026-07-12 10:08:43.195 | INFO     | acestep.core.generation.handler.conditioning_embed:preprocess_batch:113 - [preprocess_batch] Inferring lyric embeddings...
+2026-07-12 10:08:43.195 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:161 - [service_generate] Generating audio... (DiT backend: PyTorch (cuda))
+2026-07-12 10:08:43.202 | INFO     | acestep.core.generation.handler.service_generate_execute:_execute_service_generate_diffusion:263 - [service_generate] DiT diffusion via PyTorch (cuda)...
 [Python] Generating (acestep-v15-xl-sft, 50 steps)...
 Using precomputed LM hints
 Using precomputed LM hints
-  0%|          | 0/50 [00:00<?, ?it/s]2026-07-08 08:48:51.952 | INFO     | acestep.models.common.dcw_correction:__init__:98 - [DCW] Active — mode=double, scaler=0.0500, high_scaler=0.0200, wavelet='haar'
-  4%|▍         | 2/50 [00:00<00:03, 13.80it/s]  8%|▊         | 4/50 [00:00<00:03, 13.89it/s] 12%|█▏        | 6/50 [00:00<00:03, 13.89it/s] 16%|█▌        | 8/50 [00:00<00:03, 13.92it/s] 20%|██        | 10/50 [00:00<00:02, 13.94it/s] 24%|██▍       | 12/50 [00:00<00:02, 13.94it/s] 28%|██▊       | 14/50 [00:01<00:02, 13.94it/s] 32%|███▏      | 16/50 [00:01<00:02, 13.94it/s] 36%|███▌      | 18/50 [00:01<00:02, 13.58it/s] 40%|████      | 20/50 [00:01<00:02, 13.71it/s] 44%|████▍     | 22/50 [00:01<00:02, 13.79it/s] 48%|████▊     | 24/50 [00:01<00:01, 13.84it/s] 52%|█████▏    | 26/50 [00:01<00:01, 13.87it/s] 56%|█████▌    | 28/50 [00:02<00:01, 13.89it/s] 60%|██████    | 30/50 [00:02<00:01, 13.90it/s] 64%|██████▍   | 32/50 [00:02<00:01, 13.91it/s] 68%|██████▊   | 34/50 [00:02<00:01, 13.91it/s] 72%|███████▏  | 36/50 [00:02<00:01, 13.92it/s] 76%|███████▌  | 38/50 [00:02<00:00, 13.92it/s] 80%|████████  | 40/50 [00:02<00:00, 13.92it/s] 84%|████████▍ | 42/50 [00:03<00:00, 13.92it/s] 88%|████████▊ | 44/50 [00:03<00:00, 13.92it/s] 92%|█████████▏| 46/50 [00:03<00:00, 13.92it/s] 96%|█████████▌| 48/50 [00:03<00:00, 13.86it/s]100%|██████████| 50/50 [00:03<00:00, 13.88it/s]100%|██████████| 50/50 [00:03<00:00, 13.88it/s]
-2026-07-08 08:48:55.555 | INFO     | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:42 - [generate_music] Model generation completed. Decoding latents...
-2026-07-08 08:48:55.556 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:64 - [generate_music] pred_latents: torch.Size([1, 2170, 64]), dtype=torch.bfloat16
-2026-07-08 08:48:55.556 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:65 - [generate_music] time_costs: {'encoder_time_cost': 0.006550312042236328, 'diffusion_time_cost': 3.6029627323150635, 'diffusion_per_step_time_cost': 0.07205925464630127, 'total_time_cost': 3.6095130443573, 'offload_time_cost': 0.0}
-2026-07-08 08:48:55.556 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:127 - [generate_music] Decoding latents with VAE...
-2026-07-08 08:48:55.559 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:136 - [generate_music] Before VAE decode: allocated=21.95GB, max=23.21GB
-2026-07-08 08:48:55.559 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:154 - [generate_music] Effective free VRAM before VAE decode: 72.35 GB
-2026-07-08 08:48:55.559 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:172 - [generate_music] Using tiled VAE decode to reduce VRAM usage...
-2026-07-08 08:48:55.559 | DEBUG    | acestep.core.generation.handler.memory_utils:_get_auto_decode_chunk_size:108 - [_get_auto_decode_chunk_size] Effective free VRAM: 72.35 GB
-2026-07-08 08:48:55.559 | DEBUG    | acestep.core.generation.handler.memory_utils:_should_offload_wav_to_cpu:131 - [_should_offload_wav_to_cpu] Effective free VRAM: 72.35 GB
-2026-07-08 08:48:55.559 | INFO     | acestep.core.generation.handler.vae_decode:tiled_decode:56 - [tiled_decode] chunk_size=512, offload_wav_to_cpu=False, latents_shape=torch.Size([1, 64, 2170])
-2026-07-08 08:48:55.833 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:193 - [generate_music] After VAE decode: allocated=22.12GB, max=23.41GB
-2026-07-08 08:48:56.049 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:38 - [generate_music] VAE decode completed. Preparing audio tensors...
-2026-07-08 08:48:56.052 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:50 - [generate_music] Done! Generated 1 audio tensors.
+  0%|          | 0/50 [00:00<?, ?it/s]2026-07-12 10:08:43.209 | INFO     | acestep.models.common.dcw_correction:__init__:98 - [DCW] Active — mode=double, scaler=0.0500, high_scaler=0.0200, wavelet='haar'
+  4%|▍         | 2/50 [00:00<00:03, 13.85it/s]  8%|▊         | 4/50 [00:00<00:03, 13.96it/s] 12%|█▏        | 6/50 [00:00<00:03, 13.96it/s] 16%|█▌        | 8/50 [00:00<00:03, 13.96it/s] 20%|██        | 10/50 [00:00<00:02, 13.96it/s] 24%|██▍       | 12/50 [00:00<00:02, 13.95it/s] 28%|██▊       | 14/50 [00:01<00:02, 13.94it/s] 32%|███▏      | 16/50 [00:01<00:02, 13.90it/s] 36%|███▌      | 18/50 [00:01<00:02, 13.91it/s] 40%|████      | 20/50 [00:01<00:02, 13.92it/s] 44%|████▍     | 22/50 [00:01<00:02, 13.92it/s] 48%|████▊     | 24/50 [00:01<00:01, 13.92it/s] 52%|█████▏    | 26/50 [00:01<00:01, 13.92it/s] 56%|█████▌    | 28/50 [00:02<00:01, 13.92it/s] 60%|██████    | 30/50 [00:02<00:01, 13.92it/s] 64%|██████▍   | 32/50 [00:02<00:01, 13.92it/s] 68%|██████▊   | 34/50 [00:02<00:01, 13.92it/s] 72%|███████▏  | 36/50 [00:02<00:01, 13.92it/s] 76%|███████▌  | 38/50 [00:02<00:00, 13.92it/s] 80%|████████  | 40/50 [00:02<00:00, 13.91it/s] 84%|████████▍ | 42/50 [00:03<00:00, 13.91it/s] 88%|████████▊ | 44/50 [00:03<00:00, 13.91it/s] 92%|█████████▏| 46/50 [00:03<00:00, 13.91it/s] 96%|█████████▌| 48/50 [00:03<00:00, 13.91it/s]100%|██████████| 50/50 [00:03<00:00, 13.91it/s]100%|██████████| 50/50 [00:03<00:00, 13.92it/s]
+2026-07-12 10:08:46.801 | INFO     | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:42 - [generate_music] Model generation completed. Decoding latents...
+2026-07-12 10:08:46.811 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:64 - [generate_music] pred_latents: torch.Size([1, 2170, 64]), dtype=torch.bfloat16
+2026-07-12 10:08:46.811 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_prepare_generate_music_decode_state:65 - [generate_music] time_costs: {'encoder_time_cost': 0.0062389373779296875, 'diffusion_time_cost': 3.5919642448425293, 'diffusion_per_step_time_cost': 0.07183928489685058, 'total_time_cost': 3.598203182220459, 'offload_time_cost': 0.0}
+2026-07-12 10:08:46.812 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:127 - [generate_music] Decoding latents with VAE...
+2026-07-12 10:08:46.813 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:136 - [generate_music] Before VAE decode: allocated=21.96GB, max=23.22GB
+2026-07-12 10:08:46.813 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:154 - [generate_music] Effective free VRAM before VAE decode: 71.74 GB
+2026-07-12 10:08:46.813 | INFO     | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:172 - [generate_music] Using tiled VAE decode to reduce VRAM usage...
+2026-07-12 10:08:46.814 | DEBUG    | acestep.core.generation.handler.memory_utils:_get_auto_decode_chunk_size:108 - [_get_auto_decode_chunk_size] Effective free VRAM: 71.74 GB
+2026-07-12 10:08:46.814 | DEBUG    | acestep.core.generation.handler.memory_utils:_should_offload_wav_to_cpu:131 - [_should_offload_wav_to_cpu] Effective free VRAM: 71.74 GB
+2026-07-12 10:08:46.814 | INFO     | acestep.core.generation.handler.vae_decode:tiled_decode:56 - [tiled_decode] chunk_size=512, offload_wav_to_cpu=False, latents_shape=torch.Size([1, 64, 2170])
+2026-07-12 10:08:47.085 | DEBUG    | acestep.core.generation.handler.generate_music_decode:_decode_generate_music_pred_latents:193 - [generate_music] After VAE decode: allocated=22.13GB, max=23.42GB
+2026-07-12 10:08:47.306 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:38 - [generate_music] VAE decode completed. Preparing audio tensors...
+2026-07-12 10:08:47.309 | INFO     | acestep.core.generation.handler.generate_music_payload:_build_generate_music_success_payload:50 - [generate_music] Done! Generated 1 audio tensors.
 [Python] Wrote python-xl-sft/output.wav: 4166400 samples (86.80s @ 48kHz stereo)
 [Python] Done, 166 dump files
 [Xl-sft] Cosine similarities GGML vs Python
