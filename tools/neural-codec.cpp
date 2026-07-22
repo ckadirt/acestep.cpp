@@ -450,7 +450,10 @@ int main(int argc, char ** argv) {
         free(planar);
 
         VAEEncoder enc = {};
-        vae_enc_load(&enc, vae_path);
+        if (!vae_enc_load(&enc, vae_path)) {
+            free(audio);
+            return 1;
+        }
 
         int                max_T = (T_audio / 1920) + 64;
         std::vector<float> latent((size_t) max_T * 64);
@@ -485,7 +488,9 @@ int main(int argc, char ** argv) {
         }
 
         VAEGGML dec = {};
-        vae_ggml_load(&dec, vae_path);
+        if (!vae_ggml_load(&dec, vae_path)) {
+            return 1;
+        }
 
         int                max_T = T_latent * 1920 + 4096;
         std::vector<float> audio((size_t) 2 * max_T, 0.0f);

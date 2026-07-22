@@ -105,10 +105,16 @@ struct ModelStore {
 };
 
 // Caller holds s->mtx. Evicts every GPU entry whose key does not match the
-// one we are about to load. Aborts if any conflicting module still has
-// refcount > 0: that would mean two mutually exclusive modules are live at
-// once, which violates the contract in STRICT mode.
-static void evict_all_except(ModelStore * s, const ModelKey & keep) {
+// one we are about to load. Returns false if any conflicting module still
+// has refcount > 0: that means two mutually exclusive modules would be live
+// at once, which violates the contract in STRICT mode.
+//
+// This is a caller bug, not a runtime condition, and it used to abort(). It
+// no longer does: inside a shared library that would take down the host
+// process, and no sequence of requests from a client should be able to halt
+// a node however wrong those requests are. The require fails instead, with
+// the same diagnostic.
+static bool evict_all_except(ModelStore * s, const ModelKey & keep) {
     for (auto it = s->gpu.begin(); it != s->gpu.end();) {
         ModelKeyEq eq;
         if (eq(it->first, keep)) {
@@ -117,15 +123,18 @@ static void evict_all_except(ModelStore * s, const ModelKey & keep) {
         }
         GpuEntry & e = it->second;
         if (e.refcount > 0) {
-            fprintf(stderr, "[Store] FATAL: evicting %s (refcount=%d) to make room in STRICT mode\n", e.label,
-                    e.refcount);
-            abort();
+            ace_set_error(ACE_ERR_INTERNAL,
+                          "[Store] cannot evict %s (refcount=%d) to make room in STRICT mode: "
+                          "two mutually exclusive modules would be resident at once",
+                          e.label, e.refcount);
+            return false;
         }
         fprintf(stderr, "[Store] Evict %s (%.1f MB)\n", e.label, (float) e.bytes / (1024.0f * 1024.0f));
         s->handle_to_key.erase(e.ptr);
         e.deleter(e.ptr);
         it = s->gpu.erase(it);
     }
+    return true;
 }
 
 namespace {
@@ -278,8 +287,8 @@ Qwen3LM * store_require_lm(ModelStore * s, const ModelKey & k) {
     if (auto * hit = cache_hit<Qwen3LM>(s, k)) {
         return hit;
     }
-    if (s->policy == EVICT_STRICT) {
-        evict_all_except(s, k);
+    if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
+        return nullptr;
     }
     Timer     t;
     Qwen3LM * m = new Qwen3LM();
@@ -297,8 +306,8 @@ Qwen3GGML * store_require_text_enc(ModelStore * s, const ModelKey & k) {
     if (auto * hit = cache_hit<Qwen3GGML>(s, k)) {
         return hit;
     }
-    if (s->policy == EVICT_STRICT) {
-        evict_all_except(s, k);
+    if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
+        return nullptr;
     }
     Timer       t;
     Qwen3GGML * m = new Qwen3GGML();
@@ -316,8 +325,8 @@ CondGGML * store_require_cond_enc(ModelStore * s, const ModelKey & k) {
     if (auto * hit = cache_hit<CondGGML>(s, k)) {
         return hit;
     }
-    if (s->policy == EVICT_STRICT) {
-        evict_all_except(s, k);
+    if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
+        return nullptr;
     }
     Timer      t;
     CondGGML * m = new CondGGML();
@@ -335,8 +344,8 @@ DiTGGML * store_require_dit(ModelStore * s, const ModelKey & k) {
     if (auto * hit = cache_hit<DiTGGML>(s, k)) {
         return hit;
     }
-    if (s->policy == EVICT_STRICT) {
-        evict_all_except(s, k);
+    if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
+        return nullptr;
     }
     Timer        t;
     DiTGGML *    m       = new DiTGGML();
@@ -355,12 +364,15 @@ VAEEncoder * store_require_vae_enc(ModelStore * s, const ModelKey & k) {
     if (auto * hit = cache_hit<VAEEncoder>(s, k)) {
         return hit;
     }
-    if (s->policy == EVICT_STRICT) {
-        evict_all_except(s, k);
+    if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
+        return nullptr;
     }
     Timer        t;
     VAEEncoder * m = new VAEEncoder();
-    vae_enc_load(m, k.path.c_str());  // exit(1) on failure, returns void
+    if (!vae_enc_load(m, k.path.c_str())) {
+        delete m;
+        return nullptr;
+    }
     install_entry(s, k, m, bytes_of_vae_enc(m), "VAE-Enc", del_vae_enc);
     fprintf(stderr, "[Store] Load VAE-Enc: %.0f ms\n", t.ms());
     return m;
@@ -371,12 +383,15 @@ VAEGGML * store_require_vae_dec(ModelStore * s, const ModelKey & k) {
     if (auto * hit = cache_hit<VAEGGML>(s, k)) {
         return hit;
     }
-    if (s->policy == EVICT_STRICT) {
-        evict_all_except(s, k);
+    if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
+        return nullptr;
     }
     Timer     t;
     VAEGGML * m = new VAEGGML();
-    vae_ggml_load(m, k.path.c_str());  // exit(1) on failure, returns void
+    if (!vae_ggml_load(m, k.path.c_str())) {
+        delete m;
+        return nullptr;
+    }
     install_entry(s, k, m, bytes_of_vae_dec(m), "VAE-Dec", del_vae_dec);
     fprintf(stderr, "[Store] Load VAE-Dec: %.0f ms\n", t.ms());
     return m;
@@ -387,8 +402,8 @@ TokGGML * store_require_fsq_tok(ModelStore * s, const ModelKey & k) {
     if (auto * hit = cache_hit<TokGGML>(s, k)) {
         return hit;
     }
-    if (s->policy == EVICT_STRICT) {
-        evict_all_except(s, k);
+    if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
+        return nullptr;
     }
     Timer     t;
     TokGGML * m = new TokGGML();
@@ -406,8 +421,8 @@ DetokGGML * store_require_fsq_detok(ModelStore * s, const ModelKey & k) {
     if (auto * hit = cache_hit<DetokGGML>(s, k)) {
         return hit;
     }
-    if (s->policy == EVICT_STRICT) {
-        evict_all_except(s, k);
+    if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
+        return nullptr;
     }
     Timer       t;
     DetokGGML * m = new DetokGGML();

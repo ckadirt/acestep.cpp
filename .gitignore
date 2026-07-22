@@ -11,3 +11,6 @@ adapters/*.safetensors
 __pycache__/
 node_modules/
 tools/webui/dist/
+
+# local test scratch (Parts 5-8 engine work)
+testrun/

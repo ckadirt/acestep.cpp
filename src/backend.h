@@ -5,6 +5,7 @@
 // keep CPU as fallback. This avoids duplicating init logic across
 // qwen3.h, qwen3-lm.h, cond.h, dit.h, vae.h.
 
+#include "error.h"
 #include "ggml-backend.h"
 
 #include <cstdio>
@@ -16,6 +17,10 @@ struct BackendPair {
     ggml_backend_t backend;
     ggml_backend_t cpu_backend;
     bool           has_gpu;
+    // False when initialisation failed. Callers must check before using the
+    // handles: backend_init no longer exits the process, so a failed pair is
+    // a value they have to look at.
+    bool           ok;
 };
 
 // Cached backend state (shared across all modules in the same binary)
@@ -109,19 +114,24 @@ static BackendPair backend_init(const char * label) {
     if (force_backend) {
         bp.backend = ggml_backend_init_by_name(force_backend, nullptr);
         if (!bp.backend) {
-            fprintf(stderr, "[Load] FATAL: GGML_BACKEND=%s not found. Available:", force_backend);
-            for (size_t i = 0; i < ggml_backend_dev_count(); i++) {
-                fprintf(stderr, " %s", ggml_backend_dev_name(ggml_backend_dev_get(i)));
+            char avail[256] = { 0 };
+            size_t used     = 0;
+            for (size_t i = 0; i < ggml_backend_dev_count() && used < sizeof(avail) - 1; i++) {
+                int n = snprintf(avail + used, sizeof(avail) - used, " %s",
+                                 ggml_backend_dev_name(ggml_backend_dev_get(i)));
+                if (n > 0) {
+                    used += (size_t) n;
+                }
             }
-            fprintf(stderr, "\n");
-            exit(1);
+            ace_set_error(ACE_ERR_NO_BACKEND, "[Load] GGML_BACKEND=%s not found. Available:%s", force_backend, avail);
+            return bp;  // ok == false
         }
     } else {
         bp.backend = ggml_backend_init_best();
     }
     if (!bp.backend) {
-        fprintf(stderr, "[Load] FATAL: no backend available\n");
-        exit(1);
+        ace_set_error(ACE_ERR_NO_BACKEND, "[Load] no backend available");
+        return bp;  // ok == false
     }
     bool best_is_cpu = (strcmp(ggml_backend_name(bp.backend), "CPU") == 0);
     int  n_threads   = backend_cpu_n_threads();
@@ -133,10 +143,15 @@ static BackendPair backend_init(const char * label) {
         bp.cpu_backend = cpu_backend_new(n_threads);
     }
     if (!bp.cpu_backend) {
-        fprintf(stderr, "[Load] FATAL: failed to init CPU backend\n");
-        exit(1);
+        ace_set_error(ACE_ERR_NO_BACKEND, "[Load] failed to init CPU backend");
+        if (bp.backend && bp.backend != bp.cpu_backend) {
+            ggml_backend_free(bp.backend);
+        }
+        bp.backend = NULL;
+        return bp;  // ok == false
     }
     bp.has_gpu = !best_is_cpu;
+    bp.ok      = true;
     fprintf(stderr, "[Load] %s backend: %s (CPU threads: %d)\n", label, ggml_backend_name(bp.backend), n_threads);
 
     g_backend_cache = bp;
@@ -180,8 +195,37 @@ static ggml_backend_sched_t backend_sched_new(BackendPair bp, int max_nodes) {
 
     ggml_backend_sched_t sched = ggml_backend_sched_new(backends, bufts, n, max_nodes, false, true);
     if (!sched) {
-        fprintf(stderr, "[Load] FATAL: failed to create scheduler\n");
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[Load] failed to create scheduler (max_nodes=%d)", max_nodes);
+        return NULL;
     }
     return sched;
+}
+
+// Combined init: backend pair + scheduler, with both failure paths handled.
+// Every module loader opens with exactly this sequence, so it lives here once
+// instead of eight times. On failure the error is already recorded and the
+// backend reference (if any) has been released.
+// Returns false and leaves the out params untouched on failure.
+[[nodiscard]] static bool backend_init_sched(const char *           label,
+                               int                    max_nodes,
+                               ggml_backend_t *       backend_out,
+                               ggml_backend_t *       cpu_out,
+                               ggml_backend_sched_t * sched_out,
+                               bool *                 has_gpu_out) {
+    BackendPair bp = backend_init(label);
+    if (!bp.ok) {
+        return false;
+    }
+    ggml_backend_sched_t sched = backend_sched_new(bp, max_nodes);
+    if (!sched) {
+        backend_release(bp.backend, bp.cpu_backend);
+        return false;
+    }
+    *backend_out = bp.backend;
+    *cpu_out     = bp.cpu_backend;
+    *sched_out   = sched;
+    if (has_gpu_out) {
+        *has_gpu_out = bp.has_gpu;
+    }
+    return true;
 }

@@ -163,12 +163,12 @@ static void vae_load_bias(struct ggml_tensor * dst, const GGUFModel & gf, const 
     ggml_backend_tensor_set(dst, d.data(), 0, C * sizeof(float));
 }
 
-// Load model
-static void vae_ggml_load(VAEGGML * m, const char * path) {
+// Load model. Returns false with the error recorded on failure.
+[[nodiscard]] static bool vae_ggml_load(VAEGGML * m, const char * path) {
     GGUFModel gf = {};
     if (!gf_load(&gf, path)) {
-        fprintf(stderr, "[VAE] FATAL: cannot load %s\n", path);
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[VAE] cannot load %s", path);
+        return false;
     }
 
     static const int strides[]   = { 10, 6, 4, 4, 2 };
@@ -214,14 +214,15 @@ static void vae_ggml_load(VAEGGML * m, const char * path) {
     m->c2w = ggml_new_tensor_3d(ctx, GGML_TYPE_F16, 7, 128, 2);
 
     // Phase 2: allocate backend buffer
-    BackendPair bp = backend_init("VAE");
-    m->backend     = bp.backend;
-    m->cpu_backend = bp.cpu_backend;
-    m->sched       = backend_sched_new(bp, 8192);
-    m->buf         = ggml_backend_alloc_ctx_tensors(ctx, m->backend);
+    if (!backend_init_sched("VAE", 8192, &m->backend, &m->cpu_backend, &m->sched, NULL)) {
+        gf_close(&gf);
+        return false;
+    }
+    m->buf = ggml_backend_alloc_ctx_tensors(ctx, m->backend);
     if (!m->buf) {
-        fprintf(stderr, "[VAE] FATAL: failed to allocate weight buffer\n");
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[VAE] failed to allocate weight buffer");
+        gf_close(&gf);
+        return false;
     }
     fprintf(stderr, "[VAE] Backend: %s, Weight buffer: %.1f MB\n", ggml_backend_name(m->backend),
             (float) ggml_backend_buffer_get_size(m->buf) / (1024 * 1024));
@@ -256,6 +257,7 @@ static void vae_ggml_load(VAEGGML * m, const char * path) {
 
     fprintf(stderr, "[VAE] Loaded: 5 blocks, upsample=1920x, F32 activations\n");
     gf_close(&gf);
+    return true;
 }
 
 // Graph building

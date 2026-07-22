@@ -40,12 +40,13 @@ struct VAEEncoder {
     std::vector<float> scratch_in;       // transposed input [2 * T_audio]
 };
 
-// Load encoder weights from the same VAE GGUF (encoder.* tensors)
-static void vae_enc_load(VAEEncoder * m, const char * path) {
+// Load encoder weights from the same VAE GGUF (encoder.* tensors).
+// Returns false with the error recorded on failure.
+[[nodiscard]] static bool vae_enc_load(VAEEncoder * m, const char * path) {
     GGUFModel gf = {};
     if (!gf_load(&gf, path)) {
-        fprintf(stderr, "[VAE-Enc] FATAL: cannot load %s\n", path);
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[VAE-Enc] cannot load %s", path);
+        return false;
     }
 
     // Encoder channel layout (mirror of decoder, bottom-up):
@@ -105,14 +106,15 @@ static void vae_enc_load(VAEEncoder * m, const char * path) {
     m->c2b = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, 128);
 
     // Phase 2: allocate backend buffer
-    BackendPair bp = backend_init("VAE-Enc");
-    m->backend     = bp.backend;
-    m->cpu_backend = bp.cpu_backend;
-    m->sched       = backend_sched_new(bp, 8192);
-    m->buf         = ggml_backend_alloc_ctx_tensors(ctx, m->backend);
+    if (!backend_init_sched("VAE-Enc", 8192, &m->backend, &m->cpu_backend, &m->sched, NULL)) {
+        gf_close(&gf);
+        return false;
+    }
+    m->buf = ggml_backend_alloc_ctx_tensors(ctx, m->backend);
     if (!m->buf) {
-        fprintf(stderr, "[VAE-Enc] FATAL: failed to allocate weight buffer\n");
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[VAE-Enc] failed to allocate weight buffer");
+        gf_close(&gf);
+        return false;
     }
     fprintf(stderr, "[VAE-Enc] Backend: %s, Weight buffer: %.1f MB\n", ggml_backend_name(m->backend),
             (float) ggml_backend_buffer_get_size(m->buf) / (1024 * 1024));
@@ -153,6 +155,7 @@ static void vae_enc_load(VAEEncoder * m, const char * path) {
 
     fprintf(stderr, "[VAE-Enc] Loaded: 5 blocks, downsample=1920x, F32 activations\n");
     gf_close(&gf);
+    return true;
 }
 
 // Build encoder graph: audio [T_audio, 2] -> [T_latent, 128]

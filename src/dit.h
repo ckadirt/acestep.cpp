@@ -147,13 +147,15 @@ static struct ggml_tensor * dit_load_proj_in_w(WeightCtx *         wctx,
                                                int                 P) {
     int64_t idx = gguf_find_tensor(gf.gguf, name.c_str());
     if (idx < 0) {
-        fprintf(stderr, "[GGUF] FATAL: tensor '%s' not found\n", name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] tensor '%s' not found", name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
     struct ggml_tensor * src = ggml_get_tensor(gf.meta, name.c_str());
     if (!src) {
-        fprintf(stderr, "[GGUF] FATAL: meta tensor '%s' not found\n", name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] meta tensor '%s' not found", name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
     size_t       offset = gguf_get_tensor_offset(gf.gguf, idx);
     const void * raw    = gf.mapping + gf.data_offset + offset;
@@ -186,8 +188,10 @@ static struct ggml_tensor * dit_load_proj_in_w(WeightCtx *         wctx,
         const float * s = (const float *) raw;
         cvt([&](int i) { return s[i]; });
     } else {
-        fprintf(stderr, "[GGUF] FATAL: unsupported type %d for '%s' in proj_in pre-permute\n", src->type, name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] unsupported type %d for '%s' in proj_in pre-permute", src->type,
+                      name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
     wctx->pending.push_back({ dst, data, n * sizeof(float), 0 });
     wctx->staging.push_back(std::move(buf));
@@ -204,13 +208,15 @@ static struct ggml_tensor * dit_load_proj_out_w(WeightCtx *         wctx,
                                                 int                 P) {
     int64_t idx = gguf_find_tensor(gf.gguf, name.c_str());
     if (idx < 0) {
-        fprintf(stderr, "[GGUF] FATAL: tensor '%s' not found\n", name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] tensor '%s' not found", name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
     struct ggml_tensor * src = ggml_get_tensor(gf.meta, name.c_str());
     if (!src) {
-        fprintf(stderr, "[GGUF] FATAL: meta tensor '%s' not found\n", name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] meta tensor '%s' not found", name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
     size_t       offset = gguf_get_tensor_offset(gf.gguf, idx);
     const void * raw    = gf.mapping + gf.data_offset + offset;
@@ -243,9 +249,10 @@ static struct ggml_tensor * dit_load_proj_out_w(WeightCtx *         wctx,
         const float * s = (const float *) raw;
         cvt([&](int i) { return s[i]; });
     } else {
-        fprintf(stderr, "[GGUF] FATAL: unsupported type %d for '%s' in proj_out pre-permute\n", src->type,
-                name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] unsupported type %d for '%s' in proj_out pre-permute", src->type,
+                      name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
     wctx->pending.push_back({ dst, data, n * sizeof(float), 0 });
     wctx->staging.push_back(std::move(buf));
@@ -259,11 +266,9 @@ static bool dit_ggml_load(DiTGGML *    m,
                           float        adapter_scale = 1.0f) {
     // Backend init. flash_attn_ext accumulates in F16 on CPU, causing audible
     // drift over 24 layers x 8 steps: use F32 manual attention on CPU instead.
-    BackendPair bp    = backend_init("DiT");
-    m->backend        = bp.backend;
-    m->cpu_backend    = bp.cpu_backend;
-    m->sched          = backend_sched_new(bp, 8192);
-    m->use_flash_attn = bp.has_gpu;
+    if (!backend_init_sched("DiT", 8192, &m->backend, &m->cpu_backend, &m->sched, &m->use_flash_attn)) {
+        return false;
+    }
 
     GGUFModel gf;
     if (!gf_load(&gf, gguf_path)) {

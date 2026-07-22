@@ -63,7 +63,9 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
     // Prefill cond once, set 0, copy to 1..N-1
     Timer              t_prefill;
     std::vector<float> prefill_logits(V);
-    qw3lm_forward(m, prompt_tokens.data(), (int) prompt_tokens.size(), 0, prefill_logits.data());
+    if (!qw3lm_forward(m, prompt_tokens.data(), (int) prompt_tokens.size(), 0, prefill_logits.data())) {
+        return {};
+    }
     for (int i = 1; i < N; i++) {
         qw3lm_copy_kv(m, 0, i);
     }
@@ -71,7 +73,10 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
     // Prefill uncond once, set N, copy to N+1..2N-1
     std::vector<float> prefill_logits_uncond(V);
     if (use_cfg) {
-        qw3lm_forward(m, uncond_tokens->data(), (int) uncond_tokens->size(), N, prefill_logits_uncond.data());
+        if (!qw3lm_forward(m, uncond_tokens->data(), (int) uncond_tokens->size(), N,
+                           prefill_logits_uncond.data())) {
+            return {};
+        }
         for (int i = 1; i < N; i++) {
             qw3lm_copy_kv(m, N, N + i);
         }
@@ -176,11 +181,15 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
                 tokens_2n[i]     = tokens[i];
                 tokens_2n[N + i] = tokens[i];
             }
-            qw3lm_forward_batch(m, tokens_2n.data(), sets_2n.data(), N2, logits_2n.data());
+            if (!qw3lm_forward_batch(m, tokens_2n.data(), sets_2n.data(), N2, logits_2n.data())) {
+                return {};
+            }
             memcpy(logits_cond.data(), logits_2n.data(), (size_t) V * N * sizeof(float));
             memcpy(logits_uncond.data(), logits_2n.data() + (size_t) V * N, (size_t) V * N * sizeof(float));
         } else {
-            qw3lm_forward_batch(m, tokens.data(), cond_sets.data(), N, logits_cond.data());
+            if (!qw3lm_forward_batch(m, tokens.data(), cond_sets.data(), N, logits_cond.data())) {
+                return {};
+            }
         }
 
         for (int i = 0; i < N; i++) {
@@ -315,14 +324,18 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
     std::vector<std::vector<float>> prefill_logits_vec(N, std::vector<float>(V));
 
     if (shared_prompt) {
-        qw3lm_forward(m, prompts[0].data(), (int) prompts[0].size(), 0, prefill_logits_vec[0].data());
+        if (!qw3lm_forward(m, prompts[0].data(), (int) prompts[0].size(), 0, prefill_logits_vec[0].data())) {
+            return {};
+        }
         for (int i = 1; i < N; i++) {
             qw3lm_copy_kv(m, 0, i);
             prefill_logits_vec[i] = prefill_logits_vec[0];
         }
     } else {
         for (int i = 0; i < N; i++) {
-            qw3lm_forward(m, prompts[i].data(), (int) prompts[i].size(), i, prefill_logits_vec[i].data());
+            if (!qw3lm_forward(m, prompts[i].data(), (int) prompts[i].size(), i, prefill_logits_vec[i].data())) {
+                return {};
+            }
         }
     }
 
@@ -330,15 +343,20 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
     std::vector<std::vector<float>> prefill_logits_uncond_vec(N, std::vector<float>(V));
     if (use_cfg) {
         if (shared_prompt) {
-            qw3lm_forward(m, unconds[0].data(), (int) unconds[0].size(), N, prefill_logits_uncond_vec[0].data());
+            if (!qw3lm_forward(m, unconds[0].data(), (int) unconds[0].size(), N,
+                               prefill_logits_uncond_vec[0].data())) {
+                return {};
+            }
             for (int i = 1; i < N; i++) {
                 qw3lm_copy_kv(m, N, N + i);
                 prefill_logits_uncond_vec[i] = prefill_logits_uncond_vec[0];
             }
         } else {
             for (int i = 0; i < N; i++) {
-                qw3lm_forward(m, unconds[i].data(), (int) unconds[i].size(), N + i,
-                              prefill_logits_uncond_vec[i].data());
+                if (!qw3lm_forward(m, unconds[i].data(), (int) unconds[i].size(), N + i,
+                                   prefill_logits_uncond_vec[i].data())) {
+                    return {};
+                }
             }
         }
     }
@@ -457,14 +475,20 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
             // Two separate N=1 forwards (cond, then uncond).
             // Workaround for backends where batched multi-sequence attention
             // produces wrong results (e.g. ROCm/gfx1201). Same logit layout.
-            qw3lm_forward_batch(m, batch_tokens.data(), batch_sets.data(), n_active, batch_logits.data(), lm_offset,
-                                lm_count);
-            qw3lm_forward_batch(m, batch_tokens.data() + n_active, batch_sets.data() + n_active, n_active,
-                                batch_logits.data() + (size_t) n_active * out_V, lm_offset, lm_count);
+            if (!qw3lm_forward_batch(m, batch_tokens.data(), batch_sets.data(), n_active, batch_logits.data(),
+                                     lm_offset, lm_count)) {
+                return {};
+            }
+            if (!qw3lm_forward_batch(m, batch_tokens.data() + n_active, batch_sets.data() + n_active, n_active,
+                                     batch_logits.data() + (size_t) n_active * out_V, lm_offset, lm_count)) {
+                return {};
+            }
         } else {
             int actual_batch_size = use_cfg ? (2 * n_active) : n_active;
-            qw3lm_forward_batch(m, batch_tokens.data(), batch_sets.data(), actual_batch_size, batch_logits.data(),
-                                lm_offset, lm_count);
+            if (!qw3lm_forward_batch(m, batch_tokens.data(), batch_sets.data(), actual_batch_size,
+                                     batch_logits.data(), lm_offset, lm_count)) {
+                return {};
+            }
         }
 
         // 3. TARGETED CFG & LOGIT EXTRACTION
@@ -815,7 +839,9 @@ int ace_lm_generate(AceLm *            ctx,
         }
         if (dump_logits) {
             std::vector<float> dbg_logits(model->cfg.vocab_size);
-            qw3lm_forward(model, dbg_prompt.data(), (int) dbg_prompt.size(), 0, dbg_logits.data());
+            if (!qw3lm_forward(model, dbg_prompt.data(), (int) dbg_prompt.size(), 0, dbg_logits.data())) {
+                return -1;
+            }
             FILE * f = fopen(dump_logits, "wb");
             if (f) {
                 fwrite(dbg_logits.data(), sizeof(float), model->cfg.vocab_size, f);
