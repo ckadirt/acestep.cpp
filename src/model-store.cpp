@@ -73,6 +73,9 @@ struct GpuEntry {
     int    refcount;
     void (*deleter)(void *);
     const char * label;
+    // Monotonic stamp, bumped on every require hit and on install. Only read
+    // by EVICT_BUDGET, which drops the coldest resident module first.
+    uint64_t     last_used;
 };
 
 // Reverse lookup: handle pointer -> key, so store_release can find the
@@ -90,6 +93,8 @@ struct CpuEntry {
 
 struct ModelStore {
     EvictPolicy policy;
+    size_t      budget_bytes;  // EVICT_BUDGET only
+    uint64_t    clock;         // LRU stamp source
 
     std::unordered_map<ModelKey, GpuEntry, ModelKeyHash, ModelKeyEq> gpu;
     HandleMap                                                        handle_to_key;
@@ -137,10 +142,53 @@ static bool evict_all_except(ModelStore * s, const ModelKey & keep) {
     return true;
 }
 
+// Caller holds s->mtx. Drops the least recently used unreferenced modules
+// until the resident total is at or under the budget. Referenced modules are
+// skipped, never aborted on: unlike STRICT there is no invariant being
+// violated here, the budget is a target and a pinned module simply cannot be
+// reclaimed right now.
+static void evict_to_budget(ModelStore * s) {
+    if (s->budget_bytes == 0) {
+        return;
+    }
+    for (;;) {
+        size_t resident = 0;
+        for (const auto & kv : s->gpu) {
+            resident += kv.second.bytes;
+        }
+        if (resident <= s->budget_bytes) {
+            return;
+        }
+        // Pick the coldest evictable entry.
+        auto victim = s->gpu.end();
+        for (auto it = s->gpu.begin(); it != s->gpu.end(); ++it) {
+            if (it->second.refcount > 0) {
+                continue;
+            }
+            if (victim == s->gpu.end() || it->second.last_used < victim->second.last_used) {
+                victim = it;
+            }
+        }
+        if (victim == s->gpu.end()) {
+            // Everything resident is pinned. Nothing to do but proceed and
+            // exceed the budget; say so rather than looping forever.
+            fprintf(stderr, "[Store] Over budget by %.1f MB, all resident modules are in use\n",
+                    (float) (resident - s->budget_bytes) / (1024.0f * 1024.0f));
+            return;
+        }
+        GpuEntry & e = victim->second;
+        fprintf(stderr, "[Store] Evict %s (%.1f MB, LRU) to fit budget\n", e.label,
+                (float) e.bytes / (1024.0f * 1024.0f));
+        s->handle_to_key.erase(e.ptr);
+        e.deleter(e.ptr);
+        s->gpu.erase(victim);
+    }
+}
+
 namespace {
 
 template <typename T>
-static T * install_entry(ModelStore *     s,
+static T * install_entry_impl(ModelStore *     s,
                          const ModelKey & k,
                          T *              obj,
                          size_t           bytes,
@@ -150,11 +198,31 @@ static T * install_entry(ModelStore *     s,
     e.ptr      = obj;
     e.bytes    = bytes;
     e.refcount = 1;
-    e.deleter  = deleter;
-    e.label    = label;
+    e.deleter   = deleter;
+    e.label     = label;
+    e.last_used = ++s->clock;
     s->gpu.emplace(k, e);
     s->handle_to_key.emplace(obj, k);
     return obj;
+}
+
+// A module's size is only known once it is loaded, so the pre-load eviction
+// pass in the require path can never see the incoming module and, on an
+// empty-ish store, never fires at all. Settling again here is what actually
+// holds the budget: the module just installed has refcount 1 and so is never
+// its own victim, while colder peers are reclaimed around it.
+template <typename T>
+static T * install_entry(ModelStore *     s,
+                         const ModelKey & k,
+                         T *              obj,
+                         size_t           bytes,
+                         const char *     label,
+                         void (*deleter)(void *)) {
+    T * installed = install_entry_impl(s, k, obj, bytes, label, deleter);
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
+    }
+    return installed;
 }
 
 template <typename T> static T * cache_hit(ModelStore * s, const ModelKey & k) {
@@ -163,15 +231,24 @@ template <typename T> static T * cache_hit(ModelStore * s, const ModelKey & k) {
         return nullptr;
     }
     it->second.refcount++;
+    it->second.last_used = ++s->clock;
     return static_cast<T *>(it->second.ptr);
 }
 
 }  // namespace
 
-ModelStore * store_create(EvictPolicy policy) {
-    auto * s  = new ModelStore();
-    s->policy = policy;
-    fprintf(stderr, "[Store] Created (policy=%s)\n", policy == EVICT_STRICT ? "STRICT" : "NEVER");
+ModelStore * store_create(EvictPolicy policy, size_t budget_bytes) {
+    auto * s        = new ModelStore();
+    s->policy       = policy;
+    s->budget_bytes = budget_bytes;
+    s->clock        = 0;
+    const char * name =
+        policy == EVICT_STRICT ? "STRICT" : (policy == EVICT_NEVER ? "NEVER" : "BUDGET");
+    if (policy == EVICT_BUDGET) {
+        fprintf(stderr, "[Store] Created (policy=BUDGET, %.1f MB)\n", (float) budget_bytes / (1024.0f * 1024.0f));
+    } else {
+        fprintf(stderr, "[Store] Created (policy=%s)\n", name);
+    }
     return s;
 }
 
@@ -290,6 +367,9 @@ Qwen3LM * store_require_lm(ModelStore * s, const ModelKey & k) {
     if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
         return nullptr;
     }
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
+    }
     Timer     t;
     Qwen3LM * m = new Qwen3LM();
     if (!qw3lm_load(m, k.path.c_str(), k.max_seq, k.n_kv_sets)) {
@@ -308,6 +388,9 @@ Qwen3GGML * store_require_text_enc(ModelStore * s, const ModelKey & k) {
     }
     if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
         return nullptr;
+    }
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
     }
     Timer       t;
     Qwen3GGML * m = new Qwen3GGML();
@@ -328,6 +411,9 @@ CondGGML * store_require_cond_enc(ModelStore * s, const ModelKey & k) {
     if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
         return nullptr;
     }
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
+    }
     Timer      t;
     CondGGML * m = new CondGGML();
     if (!cond_ggml_load(m, k.path.c_str())) {
@@ -346,6 +432,9 @@ DiTGGML * store_require_dit(ModelStore * s, const ModelKey & k) {
     }
     if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
         return nullptr;
+    }
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
     }
     Timer        t;
     DiTGGML *    m       = new DiTGGML();
@@ -367,6 +456,9 @@ VAEEncoder * store_require_vae_enc(ModelStore * s, const ModelKey & k) {
     if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
         return nullptr;
     }
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
+    }
     Timer        t;
     VAEEncoder * m = new VAEEncoder();
     if (!vae_enc_load(m, k.path.c_str())) {
@@ -385,6 +477,9 @@ VAEGGML * store_require_vae_dec(ModelStore * s, const ModelKey & k) {
     }
     if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
         return nullptr;
+    }
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
     }
     Timer     t;
     VAEGGML * m = new VAEGGML();
@@ -405,6 +500,9 @@ TokGGML * store_require_fsq_tok(ModelStore * s, const ModelKey & k) {
     if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
         return nullptr;
     }
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
+    }
     Timer     t;
     TokGGML * m = new TokGGML();
     if (!tok_ggml_load(m, k.path.c_str())) {
@@ -423,6 +521,9 @@ DetokGGML * store_require_fsq_detok(ModelStore * s, const ModelKey & k) {
     }
     if (s->policy == EVICT_STRICT && !evict_all_except(s, k)) {
         return nullptr;
+    }
+    if (s->policy == EVICT_BUDGET) {
+        evict_to_budget(s);
     }
     Timer       t;
     DetokGGML * m = new DetokGGML();

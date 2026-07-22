@@ -297,3 +297,73 @@ jobs. The test covers text2music only.
 
 Part 6 (stage ABI) and Part 8 (budget policy) are untouched. Part 5's
 Milestone-5 harness verification is blocked on Part 6, as noted above.
+
+---
+
+## Part 8 · Residency and the budget — **policy done, device tuning outstanding**
+
+Commit: `part8: add EVICT_BUDGET residency policy`
+
+### What was built
+
+- **`EVICT_BUDGET`** in `model-store.cpp`: `GpuEntry` gains a `last_used`
+  stamp bumped on install and on every cache hit; `evict_to_budget()` drops
+  the coldest unreferenced module until the resident total fits.
+- **`store_create(policy, budget_bytes = 0)`** — defaulted, so the 13
+  existing call sites are untouched.
+- **`--vram-budget <MB>`** on `ace-server`. `--keep-loaded` wins if both are
+  given: it is an explicit "I have room for everything" instruction and a
+  byte target cannot express that.
+- **`scenario_budget`** in `test-model-store.cpp`, which measures the three
+  modules first and derives its budgets from the measurements rather than
+  hardcoding sizes.
+
+### Verification
+
+```
+[Test] sizes: vae_enc=160.8 MB vae_dec=161.1 MB dit=895.6 MB
+[Test] budget fits all three    modules=3, vram=1217.5 MB
+[Test] PASS: BUDGET kept all three; STRICT would have kept one
+[Store] Evict VAE-Enc (160.8 MB, LRU) to fit budget
+[Store] Evict VAE-Dec (161.1 MB, LRU) to fit budget
+[Test] budget fits DiT only     modules=1, vram=895.6 MB
+[Test] PASS: BUDGET evicted LRU down to 895.6 MB (budget 911.6 MB)
+```
+
+All 8 scenarios pass, 0 failures. Reference render unchanged.
+
+### Deviation 11 — evicting before the load never converges
+
+The obvious implementation — run the eviction pass in the require path,
+before loading — **does not work at all**, and the first version of the test
+caught it: all three modules stayed resident at 1217 MB under a 911 MB
+budget.
+
+The reason is that a module's size is unknown until it is loaded, so the
+pre-load pass only ever sees the *current* resident set. Starting from
+empty, each require finds itself under budget and evicts nothing:
+
+```
+require enc: resident 0     < 911 -> no evict -> resident 161
+require dec: resident 161   < 911 -> no evict -> resident 322
+require dit: resident 322   < 911 -> no evict -> resident 1217   (never converges)
+```
+
+Fixed by settling again *after* install, where the new size is known. The
+just-installed module has refcount 1 and so is never its own victim, while
+colder peers are reclaimed around it. `install_entry` now wraps
+`install_entry_impl` to do this in one place rather than at eight require
+sites.
+
+The header comment about peak exceeding the budget by roughly one module
+still stands and is now the accurate description of the remaining slack.
+
+### Outstanding for Part 8
+
+- Real device measurements. Every knob in the plan's tuning table
+  (`vae_chunk` 256 on mobile, big-core thread count, duration caps) is still
+  upstream's number or an inference from it. Nothing here was measured on a
+  phone or an entry GPU, so none of it should be treated as tuned.
+- `vae_chunk` / thread count / quirk flags are not yet reachable from a load
+  options struct — that surface arrives with Part 6.
+- Reporting resident bytes across the ABI: blocked on Part 6.

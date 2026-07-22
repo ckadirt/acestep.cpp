@@ -195,7 +195,10 @@ static AceUnderstandParams g_und_params;
 
 // limits
 static int  g_max_batch   = 1;
-static bool g_keep_loaded = false;
+static bool   g_keep_loaded  = false;
+// EVICT_BUDGET target in bytes, 0 = policy not selected. Mutually exclusive
+// with --keep-loaded; the node sets it from the catalog's vram_bytes fields.
+static size_t g_vram_budget  = 0;
 
 // job system: all compute endpoints create a job and return its ID
 // immediately. the worker thread processes jobs in FIFO order, stores
@@ -1581,6 +1584,7 @@ static void usage(const char * prog) {
             "\n"
             "Memory control:\n"
             "  --keep-loaded           Keep models in VRAM between requests\n"
+            "  --vram-budget <MB>      Keep as much resident as fits, evict LRU past it\n"
             "  --vae-chunk <N>         Latent frames per tile (default: %d)\n"
             "  --vae-overlap <N>       Overlap frames per side (default: %d)\n"
             "\n"
@@ -1627,6 +1631,8 @@ int main(int argc, char ** argv) {
             g_synth_params.vae_overlap = atoi(argv[++i]);
         } else if (!strcmp(argv[i], "--keep-loaded")) {
             g_keep_loaded = true;
+        } else if (!strcmp(argv[i], "--vram-budget") && i + 1 < argc) {
+            g_vram_budget = (size_t) atof(argv[++i]) * 1024ull * 1024ull;
 
             // server
         } else if (!strcmp(argv[i], "--host") && i + 1 < argc) {
@@ -1733,7 +1739,15 @@ int main(int argc, char ** argv) {
     // central store: one policy for the whole server lifetime. STRICT keeps
     // at most one GPU module resident at a time; --keep-loaded flips it to
     // NEVER and lets the working set accumulate across requests.
-    g_store = store_create(g_keep_loaded ? EVICT_NEVER : EVICT_STRICT);
+    // --keep-loaded wins if both are given: it is the explicit "I have the
+    // budget for everything" instruction and a byte target cannot express that.
+    if (g_keep_loaded && g_vram_budget) {
+        fprintf(stderr, "[Server] --keep-loaded overrides --vram-budget\n");
+        g_vram_budget = 0;
+    }
+    g_store = g_keep_loaded  ? store_create(EVICT_NEVER)
+              : g_vram_budget ? store_create(EVICT_BUDGET, g_vram_budget)
+                              : store_create(EVICT_STRICT);
 
     // setup HTTP server
     httplib::Server svr;
