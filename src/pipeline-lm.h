@@ -8,6 +8,8 @@
 #include "request.h"
 #include "task-types.h"
 
+#include <vector>
+
 struct AceLm;
 struct ModelStore;
 
@@ -21,6 +23,35 @@ struct AceLmParams {
     bool         clamp_fp16;     // clamp hidden states to FP16 range
 };
 
+// Progress sink, called from inside the decode loops with tokens produced
+// and the cap. Set on the context for the same reason the synth one is: the
+// callback belongs to whoever is watching, not to a particular call.
+typedef void (*AceLmProgressFn)(int i, int n, void * userdata);
+
+// Token-level checkpoint.
+//
+// The KV cache is the obvious thing to save and the wrong one: it is
+// n_kv_sets x layers x 2 x D x max_seq x Nkv in F16, hundreds of megabytes at
+// max_seq 8192. Writing that to phone storage costs more than recomputing it.
+//
+// So the checkpoint is the generated TOKEN IDS. On resume the prompt and
+// those tokens are re-prefilled in a single batched forward, which is one
+// compute-bound pass where generating them was that many sequential
+// memory-bound decode steps - typically ten to fifty times faster than
+// regenerating. Sampling is not bit-identical afterwards (the RNG stream is
+// not saved), but every token already paid for is preserved, which is the
+// part the user cares about.
+//
+// Only lm_batch_size == 1 is supported: with N > 1 each sequence has its own
+// token stream and FSM state, and resuming a partially-finished batch is a
+// different problem. ace_lm_generate refuses rather than dropping sequences.
+struct AceLmCheckpoint {
+    int              phase;   // 1 = CoT/metadata, 2 = audio codes. 0 = nothing saved.
+    std::vector<int> tokens;  // generated so far, excluding the prompt
+};
+
+void ace_lm_set_progress(AceLm * ctx, AceLmProgressFn fn, void * userdata);
+
 void ace_lm_default_params(AceLmParams * p);
 
 // Build a lightweight LM context bound to a ModelStore. The GPU model is
@@ -32,7 +63,10 @@ AceLm * ace_lm_load(ModelStore * store, const AceLmParams * params);
 // mode: LM_MODE_GENERATE (full), LM_MODE_INSPIRE (no codes), LM_MODE_FORMAT (no codes).
 // dump_logits/dump_tokens: debug output paths (NULL to disable).
 // cancel/cancel_data: abort callback, polled between tokens. NULL = never cancel.
-// Returns 0 on success, -1 on error or cancellation.
+// ckpt: token-level checkpoint, in and out. When non-NULL and carrying
+//   tokens, generation resumes from them. On a cancel it is filled with what
+//   was produced and the call returns 1 (paused) instead of -1 (error).
+// Returns 0 on success, 1 when paused with ckpt filled, -1 on error.
 int ace_lm_generate(AceLm *            ctx,
                     const AceRequest * req,
                     int                lm_batch_size,
@@ -41,7 +75,8 @@ int ace_lm_generate(AceLm *            ctx,
                     const char *       dump_tokens,
                     bool (*cancel)(void *) = nullptr,
                     void * cancel_data     = nullptr,
-                    int    mode            = LM_MODE_GENERATE);
+                    int    mode            = LM_MODE_GENERATE,
+                    AceLmCheckpoint * ckpt = nullptr);
 
 void ace_lm_free(AceLm * ctx);
 

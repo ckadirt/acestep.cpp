@@ -234,6 +234,60 @@ int main(int argc, char ** argv) {
     cantor_engine_free_blob(paused);
     free(latent_copy);
 
+    /* ---- 3b. LM: pause during generation, resume, keep the tokens ---- */
+    fprintf(stderr, "\n[ABI-Test] === LM pause and resume ===\n");
+    {
+        char * lm = join(models, "acestep-5Hz-lm-0.6B-Q8_0.gguf");
+        cantor_component lcomp[4] = {
+            { "lm", lm }, { "dit", dit }, { "embed", embed }, { "vae", vae }
+        };
+        ctx = cantor_engine_load(lcomp, 4, &opts);
+        if (!ctx) {
+            bad("load with lm");
+            free(lm);
+            return 1;
+        }
+        /* a caption-only request: PLAN has real work to do */
+        const char * plan_req =
+            "{\"caption\":\"Upbeat synthwave with driving bass\",\"lyrics\":\"\",\"duration\":30}";
+
+        struct pauser p = { 40, 0, 0 };
+        uint8_t * lm_paused = NULL;
+        size_t    lm_paused_len = 0;
+        st = cantor_engine_run_stage(ctx, CANTOR_STAGE_PLAN, (const uint8_t *) plan_req, strlen(plan_req),
+                                     &lm_paused, &lm_paused_len, on_progress, cancel_after, &p);
+        if (st != CANTOR_PAUSED || !lm_paused) {
+            /* a very short generation can finish before the 40th poll; that is
+               not a failure of the mechanism, so say so rather than failing */
+            if (st == CANTOR_DONE) {
+                fprintf(stderr, "[ABI-Test] NOTE: PLAN finished before the pause point, skipping resume check\n");
+                cantor_engine_free_blob(lm_paused);
+            } else {
+                bad("PLAN pause");
+            }
+        } else {
+            fprintf(stderr, "[ABI-Test] paused LM blob: %zu bytes\n", lm_paused_len);
+            ok("PLAN paused and emitted a token checkpoint");
+            cantor_engine_free(ctx);
+
+            ctx = cantor_engine_load(lcomp, 4, &opts);
+            uint8_t * done_blob = NULL;
+            size_t    done_len  = 0;
+            st = cantor_engine_run_stage(ctx, CANTOR_STAGE_PLAN, lm_paused, lm_paused_len, &done_blob, &done_len,
+                                         NULL, NULL, NULL);
+            if (st != CANTOR_DONE || !done_blob) {
+                bad("PLAN resume");
+            } else {
+                fprintf(stderr, "[ABI-Test] resumed PLAN output: %zu bytes of JSON\n", done_len);
+                ok("PLAN resumed from the token checkpoint and completed");
+            }
+            cantor_engine_free_blob(done_blob);
+            cantor_engine_free_blob(lm_paused);
+        }
+        cantor_engine_free(ctx);
+        free(lm);
+    }
+
     /* ---- 4. error classes, harness must survive all of them ---- */
     fprintf(stderr, "\n[ABI-Test] === error classes (process must survive) ===\n");
     {

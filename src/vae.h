@@ -482,9 +482,23 @@ static int vae_ggml_decode_tiled(VAEGGML *     m,
         overlap /= 2;
     }
 
-    // Short sequence: decode directly
+    // Short sequence: decode directly, no tiling.
+    //
+    // This path is one ggml graph and cannot report progress from inside it,
+    // so a caller watching a short track sees nothing for the whole decode -
+    // on the 12s reference that is 11 of its 32 seconds. Reporting the tile
+    // count it does have (one) at least distinguishes "running" from "done".
+    // Real granularity here means a smaller chunk_size, which is what mobile
+    // wants anyway for the memory peak.
     if (T_latent <= chunk_size) {
-        return vae_ggml_decode(m, latent, T_latent, audio_out, max_T_audio);
+        if (progress) {
+            progress(0, 1, progress_data);
+        }
+        int r = vae_ggml_decode(m, latent, T_latent, audio_out, max_T_audio);
+        if (r >= 0 && progress) {
+            progress(1, 1, progress_data);
+        }
+        return r;
     }
 
     int stride    = chunk_size - 2 * overlap;

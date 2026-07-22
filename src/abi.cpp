@@ -121,6 +121,17 @@ static uint8_t * blob_alloc(const void * src, size_t n, uint8_t ** out, size_t *
     return p;
 }
 
+// Paused LM blob. Fixed header, then the request JSON, then the token ids.
+// Small: a few hundred tokens, so a few kilobytes against the DiT blob's 77.
+#define LM_MAGIC "ACELM001"
+
+struct LmHeader {
+    char     magic[8];
+    uint32_t phase;     // 1 = CoT/metadata, 2 = audio codes
+    uint32_t n_tokens;
+    uint32_t json_len;
+};
+
 // Paused DIFFUSE blob. Fixed header, then the request JSON, then the latent.
 #define DIFFUSE_MAGIC "ACEDIF01"
 
@@ -317,34 +328,71 @@ extern "C" const float * cantor_engine_audio(cantor_ctx * ctx, int * n_samples, 
 
 // -------------------------------------------------------------- stage: LM
 
-static cantor_status run_lm(cantor_ctx * c,
-                            int          mode,
-                            const char * json,
-                            size_t       json_len,
-                            uint8_t **   out,
-                            size_t *     out_len) {
+static cantor_status run_lm(cantor_ctx *    c,
+                            int             mode,
+                            const uint8_t * in,
+                            size_t          in_len,
+                            uint8_t **      out,
+                            size_t *        out_len) {
     if (!c->lm) {
         ace_set_error(ACE_ERR_INTERNAL, "[ABI] no lm component was loaded");
         return CANTOR_ERR;
     }
+
+    // Resuming? A paused LM blob leads with the magic.
+    AceLmCheckpoint ckpt;
+    ckpt.phase       = 0;
+    bool        resuming = (in_len > sizeof(LmHeader) && !memcmp(in, LM_MAGIC, 8));
+    std::string json;
+
+    if (resuming) {
+        LmHeader h;
+        memcpy(&h, in, sizeof(h));
+        size_t need = sizeof(h) + h.json_len + (size_t) h.n_tokens * sizeof(int32_t);
+        if (in_len != need) {
+            ace_set_error(ACE_ERR_INTERNAL, "[ABI] paused LM blob is %zu bytes, header describes %zu", in_len, need);
+            return CANTOR_ERR;
+        }
+        json.assign((const char *) in + sizeof(h), h.json_len);
+        const int32_t * toks = (const int32_t *) (in + sizeof(h) + h.json_len);
+        ckpt.phase           = (int) h.phase;
+        ckpt.tokens.assign(toks, toks + h.n_tokens);
+        fprintf(stderr, "[ABI] resuming LM phase %u with %u tokens\n", h.phase, h.n_tokens);
+    } else {
+        json.assign((const char *) in, in_len);
+    }
+
     AceRequest req;
     request_init(&req);
-    std::string s(json, json_len);
-    if (!request_parse_json(&req, s.c_str())) {
+    if (!request_parse_json(&req, json.c_str())) {
         ace_set_error(ACE_ERR_INTERNAL, "[ABI] state blob is not a valid request JSON");
         return CANTOR_ERR;
     }
 
     AceRequest result;
     request_init(&result);
-    if (ace_lm_generate(c->lm, &req, 1, &result, nullptr, nullptr, cancel_tramp, c, mode) != 0) {
-        // ace_lm_generate folds cancel into -1; distinguish by asking the
-        // callback again rather than guessing.
-        if (c->cancel && c->cancel(c->userdata)) {
-            ace_set_error(ACE_ERR_CANCELLED, "[ABI] LM stage cancelled");
-            return CANTOR_PAUSED;
-        }
+    int rc = ace_lm_generate(c->lm, &req, 1, &result, nullptr, nullptr, cancel_tramp, c, mode, &ckpt);
+    if (rc < 0) {
         return CANTOR_ERR;
+    }
+    if (rc == 1) {
+        // Paused: the tokens already paid for, plus the request they belong to.
+        LmHeader h = {};
+        memcpy(h.magic, LM_MAGIC, 8);
+        h.phase    = (uint32_t) ckpt.phase;
+        h.n_tokens = (uint32_t) ckpt.tokens.size();
+        std::string j = request_to_json(&req, true);
+        h.json_len    = (uint32_t) j.size();
+
+        std::vector<uint8_t> buf(sizeof(h) + j.size() + ckpt.tokens.size() * sizeof(int32_t));
+        memcpy(buf.data(), &h, sizeof(h));
+        memcpy(buf.data() + sizeof(h), j.data(), j.size());
+        std::vector<int32_t> t32(ckpt.tokens.begin(), ckpt.tokens.end());
+        memcpy(buf.data() + sizeof(h) + j.size(), t32.data(), t32.size() * sizeof(int32_t));
+        if (!blob_alloc(buf.data(), buf.size(), out, out_len)) {
+            return CANTOR_ERR;
+        }
+        return CANTOR_PAUSED;
     }
 
     std::string enriched = request_to_json(&result, true);
@@ -528,12 +576,15 @@ extern "C" cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
     if (ctx->synth) {
         ace_synth_set_progress(ctx->synth, on_progress ? progress_tramp : nullptr, ctx);
     }
+    if (ctx->lm) {
+        ace_lm_set_progress(ctx->lm, on_progress ? progress_tramp : nullptr, ctx);
+    }
 
     switch (stage) {
         case CANTOR_STAGE_PLAN:
-            return run_lm(ctx, LM_MODE_INSPIRE, (const char *) state_in, in_len, state_out, out_len);
+            return run_lm(ctx, LM_MODE_INSPIRE, state_in, in_len, state_out, out_len);
         case CANTOR_STAGE_CODES:
-            return run_lm(ctx, LM_MODE_GENERATE, (const char *) state_in, in_len, state_out, out_len);
+            return run_lm(ctx, LM_MODE_GENERATE, state_in, in_len, state_out, out_len);
         case CANTOR_STAGE_DIFFUSE:
             return run_diffuse(ctx, state_in, in_len, state_out, out_len);
         case CANTOR_STAGE_DECODE:

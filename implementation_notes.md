@@ -510,3 +510,93 @@ Two gaps remain, both real:
 | LM token checkpoint + re-prefill resume | 7 | not started; DiT resume does not cover PLAN/CODES |
 | Device measurements and tuning | 8 | nothing here has run on a GPU or a phone |
 | `vae_chunk` / threads / quirks through load opts | 8 | fields exist in `cantor_load_opts`; `n_threads` is not yet wired to the backend |
+
+---
+
+## Follow-up · LM resume, progress gaps, ABI docs — **done**
+
+Commit: `lm: token-level checkpoint and resume; close the progress gaps`
+
+### LM resume
+
+Checkpoints the generated **token ids**, not the KV cache — the cache is
+hundreds of MB at `max_seq 8192` and costs more to write to flash than to
+recompute. On resume the prompt and saved tokens are re-prefilled in one
+batched forward.
+
+Both phases support it. Phase 1 additionally **replays the saved tokens
+through the FSM** and the think/codes transition, so the constrained decoder
+resumes in the state it was interrupted in — the prefill rebuilds the KV
+cache, this rebuilds the CPU-side state that goes with it. Phase 2 stores
+absolute vocab ids (what a prefill consumes) and lifts them back into
+`audio_codes` on resume, so the output is the whole run rather than only the
+part generated after.
+
+Verified:
+
+```
+[LM-Phase1] Paused at step 40, 41 tokens checkpointed
+[LM-Phase1] Resuming: 38 prompt + 41 generated tokens re-prefilled
+PASS: PLAN paused and emitted a token checkpoint
+PASS: PLAN resumed from the token checkpoint and completed
+```
+
+Paused LM blob: **372 bytes**, against 77 273 for a paused DIFFUSE. The
+asymmetry is the point — tokens are tiny, latents are not.
+
+### Deviation 15 — LM resume is not bit-identical, and cannot cheaply be
+
+DiT resume is byte-exact. LM resume is **not**, and this is a real difference
+in the guarantee that should be stated wherever it is offered to a user.
+
+The RNG stream is not part of the checkpoint. `std::mt19937` is seeded once
+per sequence and advanced by every sampling call, so a resumed run re-seeds
+and diverges from where the interrupted one would have gone. Every token
+already produced is preserved exactly; the *continuation* differs.
+
+Serializing the RNG state is possible (`mt19937` streams in and out via
+`operator<<`) but the FSM state is the harder half, and replaying tokens
+through it — which is what happens now — is the same work. The honest framing:
+**LM resume preserves work, DiT resume preserves the result.** Both are worth
+having; they are not the same promise.
+
+Not fixed, deliberately. Recorded so nobody markets it as exact.
+
+### Deviation 16 — batched LM resume refused
+
+`ace_lm_generate` refuses a checkpoint when `lm_batch_size > 1`. With N > 1
+each sequence has its own token stream, FSM state and RNG, and a partially
+finished batch (some sequences done, some not) is a different problem than a
+paused single run. Refusing beats silently dropping sequences.
+
+The ABI always passes 1, so this does not restrict the node.
+
+### Progress gaps closed
+
+- **LM loops** now emit, through the same context-level setter pattern as the
+  synth side (`ace_lm_set_progress`). Verified: 40 events at
+  `stage=1 i/2048` during the paused PLAN run.
+- **Non-tiled VAE decode** now emits `0/1` then `1/1`. It is one ggml graph
+  and cannot report from inside, so this only distinguishes *running* from
+  *done* — but that is the difference between a UI that looks hung and one
+  that does not. Real granularity needs a smaller `vae_chunk`, which mobile
+  wants anyway. Documented in both `docs/ABI.md` and the header.
+
+### Documentation
+
+`docs/ABI.md` — how to drive the engine: loading, the stage loop, blob
+opacity and why, pause/resume semantics and the exact cases where resume is
+refused, error handling, residency, threading, and a worked example.
+
+### Deviation 17 — a documented guarantee that is not yet enforced
+
+Writing the docs surfaced this. The paused DIFFUSE blob **stamps the backend
+name**, and the plan's Part 7 task list requires refusing a resume on a
+mismatch. The solver check is wired; **the backend check is not** — the field
+is written and then ignored.
+
+So today, resuming a blob on a different backend than it was paused on will
+proceed and drift. It is called out explicitly in `docs/ABI.md` under pause
+and resume rather than quietly left out. Small fix, but it is a gap between
+what is documented as designed and what the code does, and those are the
+worst kind to leave unrecorded.
