@@ -456,3 +456,22 @@ Run the ABI test:
 Shared-library builds and the `libcantor_acestep_<backend>_<arch>.so` naming
 from the engine plan are not wired up yet; `acestep-core` is static. That is
 Part 3 of the models-and-engine plan, not this ABI.
+
+---
+
+## A backend that cannot be tried safely
+
+`ggml_backend_init_best()` does not merely fail on an unsupported GPU — it
+**throws**, and ggml-vulkan leaves state behind that segfaults during cleanup
+even when the exception is caught.
+
+The engine now catches it and reports `NO_BACKEND` rather than terminating on
+an uncaught exception, and `cantor_engine_load` guarantees a NULL return
+always carries an error code. But the process can still die afterwards inside
+ggml's own teardown, and that is not something this layer can fix.
+
+**The loader must therefore avoid loading a backend it cannot use, rather
+than trying it and recovering.** Probe capabilities, keep a driver blocklist,
+and select explicitly — which is what the Phase F design already calls for.
+Concretely, on an Adreno 619 the correct action is to load the CPU backend
+directly, not to attempt Vulkan and fall back.

@@ -117,3 +117,43 @@ cold-device numbers and sustained generation will likely be slower.
   also fits is unknown.
 - **The engine `.so` was pushed but nothing loaded it.** `ace-synth` is a
   CLI; a real host would `dlopen libcantor_engine.so`.
+
+## Vulkan on Adreno: not viable on this device
+
+Built and pushed. The GPU refuses it:
+
+```
+ggml_vulkan: 0 = Adreno (TM) 619 (Qualcomm) | uma: 1 | fp16: 0 | ...
+             shared memory: 32768 | matrix cores: none
+ggml_vulkan: device Vulkan0 does not support 16-bit storage.
+```
+
+`VK_KHR_16bit_storage` is required by ggml-vulkan and the Adreno 619 in the
+Snapdragon 695 does not have it (note `fp16: 0`). This is a hardware/driver
+limit, not a build problem — **CPU is the only backend for this device.**
+
+Two build fixes were needed to get that far, both worth knowing:
+
+- **ggml bug: unquoted path in the generated host toolchain.**
+  `ggml/src/ggml-vulkan/cmake/host-toolchain.cmake.in:9` emits
+  `set(CMAKE_RUNTIME_OUTPUT_DIRECTORY @...@)` without quotes, while the two
+  compiler lines above it are quoted. Any build path containing a space
+  splits into two CMake arguments and the host build of `vulkan-shaders-gen`
+  fails. Affects cross-compiles only. One-line fix, worth upstreaming.
+- **`vulkan.hpp` is not in the NDK.** The NDK ships the C header
+  `vulkan/vulkan.h` but not the C++ bindings ggml-vulkan includes. Add the
+  LunarG SDK's include directory — headers are arch-independent, so this does
+  not drag in host libraries:
+  `-DCMAKE_CXX_FLAGS="-I$VULKAN_SDK/include"`.
+
+### Shipping one binary anyway
+
+A Vulkan-enabled build still runs on this phone when the backend is selected
+explicitly:
+
+```bash
+GGML_BACKEND=CPU ./ace-synth ...     # works, no crash
+```
+
+So a single binary per architecture is viable. What is **not** viable is
+letting it auto-select: see below.

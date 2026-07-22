@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <thread>
 
 struct BackendPair {
@@ -213,9 +214,31 @@ static BackendPair backend_init(const char * label) {
 
     // GGML_BACKEND env var: force a specific device instead of auto-best.
     // Device names: CUDA0, Vulkan0, CPU, BLAS (see ggml_backend_dev_name).
+    // Device init can THROW, not just fail. ggml-vulkan raises
+    // std::runtime_error out of device selection when a GPU lacks a required
+    // feature - an Adreno 619 with no 16-bit storage does exactly this. Left
+    // unhandled the exception unwinds through this function with the cache
+    // half-built and the refcount already moved, and the process segfaults
+    // during cleanup rather than at the point of failure.
+    //
+    // Catch it here, where the partially-initialised state still lives, and
+    // turn it into the ordinary "no usable backend" failure that every caller
+    // already handles.
+    auto init_device = [&](const char * name) -> ggml_backend_t {
+        try {
+            return name ? ggml_backend_init_by_name(name, nullptr) : ggml_backend_init_best();
+        } catch (const std::exception & e) {
+            ace_set_error(ACE_ERR_NO_BACKEND, "[Load] backend init threw: %s", e.what());
+            return NULL;
+        } catch (...) {
+            ace_set_error(ACE_ERR_NO_BACKEND, "[Load] backend init threw an unknown exception");
+            return NULL;
+        }
+    };
+
     const char * force_backend = std::getenv("GGML_BACKEND");
     if (force_backend) {
-        bp.backend = ggml_backend_init_by_name(force_backend, nullptr);
+        bp.backend = init_device(force_backend);
         if (!bp.backend) {
             char avail[256] = { 0 };
             size_t used     = 0;
@@ -230,10 +253,12 @@ static BackendPair backend_init(const char * label) {
             return bp;  // ok == false
         }
     } else {
-        bp.backend = ggml_backend_init_best();
+        bp.backend = init_device(nullptr);
     }
     if (!bp.backend) {
-        ace_set_error(ACE_ERR_NO_BACKEND, "[Load] no backend available");
+        if (ace_error_code() == ACE_OK) {
+            ace_set_error(ACE_ERR_NO_BACKEND, "[Load] no backend available");
+        }
         return bp;  // ok == false
     }
     bool best_is_cpu = (strcmp(ggml_backend_name(bp.backend), "CPU") == 0);

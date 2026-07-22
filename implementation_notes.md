@@ -859,3 +859,78 @@ Worth generalising: **`static` at file scope in a header is per-TU state
 wearing the costume of a global.** The comment above these three said
 "shared across all modules in the same binary" and had been wrong since it
 was written.
+
+---
+
+## CUDA on T4, Vulkan on Adreno — **measured**
+
+Commit: `abi: survive a throwing backend; T4 and Adreno results`
+
+### T4 (Tesla T4, 15 GB, CUDA 13.0, sm_75)
+
+12-second track, `turbo-Q6_K`:
+
+| Stage | T4 | x86 CPU | RADV iGPU | Snapdragon 695 |
+|---|---|---|---|---|
+| DiT, 8 steps | **556 ms** | 8 727 ms | 5 435 ms | 72 695 ms |
+| VAE decode | **537 ms** | 11 120 ms | 7 791 ms | 89 086 ms |
+
+~16x the desktop CPU, ~130x the phone. CUDA graphs active.
+
+`test-dit-resume`: ALL PASS — **resume is byte-exact on CUDA too**. That now
+holds on all three backends tested (CPU, Vulkan/RADV, CUDA/T4).
+`test-abi`: 11/11.
+
+### Adreno 619: cannot run Vulkan at all
+
+`ggml_vulkan: device Vulkan0 does not support 16-bit storage` — the Adreno
+619 lacks `VK_KHR_16bit_storage` (`fp16: 0`). Hardware limit. CPU only for
+this device class.
+
+### Deviation 23 — Part 5 did not cover exceptions
+
+Part 5 removed every `exit()` and `abort()` from this repository and claimed
+"no engine call kills the host process". **That was incomplete.**
+`ggml_backend_init_best()` throws `std::runtime_error` out of ggml-vulkan's
+device selection on an unsupported GPU, and the Adreno run died with
+`libc++abi: terminating due to uncaught exception`.
+
+An exception crossing a C ABI boundary is also undefined behaviour
+independently of whether anything catches it.
+
+Fixed in two places: `backend_init` wraps device selection so a throw becomes
+the ordinary "no usable backend" failure while the partially-built state is
+still in scope, and every ABI entry point runs inside `abi_guard`.
+
+**It is still not enough.** With the exception caught and reported, the
+process segfaults later inside ggml's own teardown. The conclusion is a
+design constraint rather than a bug to fix here: **a backend that cannot be
+used cannot be safely tried.** Recorded in `docs/ABI.md`; it gives the Phase F
+probe-and-blocklist design a concrete justification.
+
+### Deviation 24 — the ABI could return NULL with no error
+
+The T4 run reported `FAIL: engine_load (err=0: no error)`. `ace_synth_load`
+fails by logging to stderr and returning NULL without calling
+`ace_set_error`, so a caller reading the error accessors saw `CANTOR_OK` on a
+failure — directly contradicting `docs/ABI.md`.
+
+`cantor_engine_load` now backstops: a NULL return with no recorded error
+becomes `BAD_MODEL` with a pointer to stderr. The underlying load paths should
+record properly in time; the backstop makes the contract true meanwhile.
+
+### Two build bugs found
+
+- **ggml, unquoted path**: `ggml-vulkan/cmake/host-toolchain.cmake.in:9`
+  breaks any cross-compile from a path containing a space. Patched locally
+  in the submodule working tree, **not committed** (it would change the
+  submodule SHA). Worth upstreaming.
+- **NDK has no `vulkan.hpp`**: needs the LunarG SDK include dir.
+
+### Repo hygiene
+
+`.gitignore` had `build/`, which did not cover `build-vulkan/` or
+`build-android/`, and `git add -A` swept **3176 generated files** (4.2M lines)
+into the branch. History rewritten with `filter-branch`: 3217 files -> 41,
+4 196 420 insertions -> 4 511, all 11 commits preserved. `.gitignore` now
+`build*/`. Backup at `backup-dirty-engine-stages`.

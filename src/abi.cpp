@@ -30,6 +30,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -147,6 +148,29 @@ struct DiffuseHeader {
     char     solver[16];   // NUL-padded solver name
 };
 
+// ---------------------------------------------------------- exception guard
+//
+// ggml backends throw. ggml-vulkan in particular throws std::runtime_error
+// straight out of device init when a GPU lacks a required feature - an
+// Adreno 619 without 16-bit storage terminates the process with
+// "libc++abi: terminating due to uncaught exception".
+//
+// Part 5 removed every exit() and abort() from this repository's own code,
+// but an exception crossing the ABI boundary kills the host just as dead, and
+// crossing a C boundary at all is undefined behaviour. So every entry point
+// that can reach ggml runs inside this.
+template <typename F> static auto abi_guard(F && fn, decltype(fn()) on_throw) -> decltype(fn()) {
+    try {
+        return fn();
+    } catch (const std::exception & e) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] backend threw: %s", e.what());
+        return on_throw;
+    } catch (...) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] backend threw an unknown exception");
+        return on_throw;
+    }
+}
+
 // ------------------------------------------------------------- trampolines
 
 static bool cancel_tramp(void * ud) {
@@ -165,10 +189,9 @@ static void progress_tramp(int i, int n, void * ud) {
 
 // ------------------------------------------------------------------ loading
 
-extern "C" cantor_ctx * cantor_engine_load(const cantor_component * components,
-                                           size_t                   n,
-                                           const cantor_load_opts * opts) {
-    ace_clear_error();
+static cantor_ctx * engine_load_inner(const cantor_component * components,
+                                      size_t                   n,
+                                      const cantor_load_opts * opts) {
     if (!components || n == 0) {
         ace_set_error(ACE_ERR_INTERNAL, "[ABI] no components given");
         return nullptr;
@@ -293,6 +316,20 @@ extern "C" cantor_ctx * cantor_engine_load(const cantor_component * components,
         }
     }
 
+    return c;
+}
+
+extern "C" cantor_ctx * cantor_engine_load(const cantor_component * components,
+                                           size_t                   n,
+                                           const cantor_load_opts * opts) {
+    ace_clear_error();
+    cantor_ctx * c = abi_guard([&] { return engine_load_inner(components, n, opts); }, (cantor_ctx *) nullptr);
+    // Contract: a NULL return always comes with a reason. Some internal load
+    // paths still only log to stderr, so backstop rather than let a caller
+    // read "no error" off a failure - which is what the T4 run did.
+    if (!c && ace_error_code() == ACE_OK) {
+        ace_set_error(ACE_ERR_BAD_MODEL, "[ABI] engine load failed (see stderr for the failing component)");
+    }
     return c;
 }
 
@@ -600,13 +637,15 @@ extern "C" cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
 
     switch (stage) {
         case CANTOR_STAGE_PLAN:
-            return run_lm(ctx, LM_MODE_INSPIRE, state_in, in_len, state_out, out_len);
+            return abi_guard([&] { return run_lm(ctx, LM_MODE_INSPIRE, state_in, in_len, state_out, out_len); },
+                             CANTOR_ERR);
         case CANTOR_STAGE_CODES:
-            return run_lm(ctx, LM_MODE_GENERATE, state_in, in_len, state_out, out_len);
+            return abi_guard([&] { return run_lm(ctx, LM_MODE_GENERATE, state_in, in_len, state_out, out_len); },
+                             CANTOR_ERR);
         case CANTOR_STAGE_DIFFUSE:
-            return run_diffuse(ctx, state_in, in_len, state_out, out_len);
+            return abi_guard([&] { return run_diffuse(ctx, state_in, in_len, state_out, out_len); }, CANTOR_ERR);
         case CANTOR_STAGE_DECODE:
-            return run_decode(ctx, state_in, in_len);
+            return abi_guard([&] { return run_decode(ctx, state_in, in_len); }, CANTOR_ERR);
     }
     ace_set_error(ACE_ERR_INTERNAL, "[ABI] unknown stage %d", (int) stage);
     return CANTOR_ERR;
