@@ -9,6 +9,24 @@ Branch: `engine-stages`, off `master` at `fa33775`.
 Every section headed **Deviation** records where reality differed from the
 plan. The plan is not retro-edited; these notes are the amendment.
 
+## Status
+
+| Part | State | Commit |
+|---|---|---|
+| 5 · No fatal exits below the ABI | **done** | `57abaac` |
+| 6 · The stage seam (ABI) | **not started** | — |
+| 7 · Pause and resume | **in-process done**, persistence + LM outstanding | `0cec0ac` |
+| 8 · Residency and the budget | **policy done**, device tuning outstanding | `1a716c7` |
+
+Parts were taken in dependency order except that Part 6 was deferred: Parts 7
+and 8 are the capabilities, Part 6 is the surface that exposes them, and
+neither 7 nor 8 needs it to be built or tested. The cost of that choice is
+that Milestone 5's "harness still running" check and Part 8's ABI-side
+reporting are both still blocked on it.
+
+Everything below was built and run on CPU against the `1.5-fast` models.
+Nothing here has been near a GPU or a phone.
+
 ---
 
 ## Test environment
