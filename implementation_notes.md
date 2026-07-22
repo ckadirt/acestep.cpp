@@ -196,3 +196,104 @@ The plan puts the error enum in `include/cantor_engine.h`. That header is a
 Part 6 artifact and does not exist yet, so the enum lives in `src/error.h`
 for now. Part 6 will re-export it across the ABI rather than redefine it —
 one enum, two headers, no drift.
+
+---
+
+## Part 7 · Pause and resume — **in-process done, persistence outstanding**
+
+Commit: `part7: make the DiT loop re-enterable`
+
+### What was built
+
+- **`dit_ggml_generate` is re-enterable.** Three new trailing params
+  (`start_step`, `xt_io`, `stop_step_out`) and a third return code:
+  `0` done, `1` paused, `-1` error. On a pause it copies `xt` — the latent
+  *entering* the interrupted step — into `xt_io` and reports the step, so a
+  resume repeats no work and skips none.
+- **Pause no longer destroys the job.** `run_tail` propagates `1` instead of
+  collapsing it into `-1`, and the seven task wrappers keep the job on a
+  pause via a new `job_mark()`.
+- **Public API** in `pipeline-synth.h`: `ace_synth_job_is_paused()`,
+  `ace_synth_job_progress()`, `ace_synth_job_resume_dit()`.
+- **Resume refusal** for stateful solvers and CFG runs, gated on the
+  registry's existing `SolverInfo::is_stateful` rather than name-matching.
+- **`tests/test-dit-resume.cpp`** — three scenarios: reference run, pause at
+  step k + resume + byte comparison, and stateful-solver refusal.
+
+### Verification
+
+```
+[Test] === paused run (pause entering step 5) ===
+[DiT] Paused at step 5/8
+[Test] resuming...
+[DiT] Resuming at step 5/8
+[Test] PASS: resumed latents are byte-identical to the reference
+[Test] PASS: resume refused on a stateful solver
+[Test] ALL PASS
+```
+
+The 12 s reference render is unchanged from baseline
+(`607dd0ea…833a74c3`), so the re-entry plumbing costs nothing when unused.
+
+### Deviation 8 — in-process resume needs no `xt_state` at all, but it has one
+
+The plan predicted in-process resume would be "~10 lines: just don't delete
+the job", because the `AceSynthJob` already holds the whole `SynthState`.
+That is true of everything *except* `xt`, which was a function-local
+`std::vector` inside `dit_ggml_generate` and died with the call.
+
+So `SynthState` gains an `xt_state` buffer. It is not strictly needed for
+the in-process case — the sampler could have kept its own latent across
+calls — but putting it in `SynthState` is what makes the *serialized* case
+a straight copy of a field that already exists rather than a second
+mechanism. Costs `batch_n * T * 64 * 4` bytes (1.1 MB for the reference
+workload), which the job was already spending twice over on `output` and
+`context`.
+
+Actual size: ~40 lines in the sampler, ~30 in the pipeline, ~25 in the
+header. Close to the plan's estimate once `xt_state` is accounted for.
+
+### Deviation 9 — an existing caller silently inherited the new behaviour
+
+`tools/synth-batch-runner.h` treated a non-NULL job as complete and went
+straight to VAE decode. Once pause stopped returning NULL, a cancelled
+render would have decoded a **zero-filled** output buffer and written
+silence instead of failing.
+
+Guarded: the batch runner now checks `ace_synth_job_is_paused()` and frees
++ returns `-1`, reproducing the old contract exactly. Both existing callers
+(the `ace-synth` CLI and `ace-server`) are run-to-completion paths and want
+that. Resume is opt-in, via the job handle, for callers that want it.
+
+**This is the kind of break the plan did not anticipate**: widening a return
+contract silently changed the meaning of an existing success path. Worth
+checking for the same shape in Part 6 when `run_stage` starts returning
+`CANTOR_PAUSED`.
+
+### Deviation 10 — the cover context switch is not in the saved state
+
+`switched_cover` is a loop-local flag, and the swapped context/encoder
+buffers it produces are not serialized. On resume it starts `false` again,
+so when `start_step > cover_steps` the switch re-fires on the first resumed
+iteration and re-applies the same swap. That is correct — the swap is
+idempotent and derived from `s.context_switch`, which *is* in `SynthState`.
+
+Recorded because it is load-bearing and non-obvious: if anyone makes the
+cover switch stateful or non-idempotent, resume breaks silently for cover
+jobs. The test covers text2music only.
+
+### Outstanding for Part 7
+
+- Cross-restart persistence: serialize `{request, step, xt}` and reload.
+  The pieces are all in place (`xt_state` + `resume_step` in `SynthState`);
+  what is missing is the blob format, atomic write, and the
+  backend/quant/solver stamp that Part 7's task list requires for refusing a
+  mismatched resume.
+- LM token-level checkpoint + re-prefill resume. Not started.
+
+---
+
+## Parts 6 and 8 — not started
+
+Part 6 (stage ABI) and Part 8 (budget policy) are untouched. Part 5's
+Milestone-5 harness verification is blocked on Part 6, as noted above.

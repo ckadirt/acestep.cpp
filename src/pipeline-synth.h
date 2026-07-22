@@ -80,7 +80,33 @@ AceSynthJob * ace_synth_job_run_dit(AceSynth *         ctx,
 // job and valid until ace_synth_job_free. Layout is flat [T_latent * 64] f32
 // time-major, identical to the /vae wire format: feeding it to /vae decode
 // reproduces the track's output audio. *T_out is set to T_latent.
+// Only meaningful once phase 1 has completed: a paused job has no output yet.
 const float * ace_synth_job_get_latent(const AceSynthJob * job, int track_idx, int * T_out);
+
+// Pause and resume.
+//
+// ace_synth_job_run_dit returns a job in one of two states. A completed job
+// carries the denoised latents and is ready for phase 2. A paused job stopped
+// on the cancel callback partway through the flow matching schedule and is
+// NOT ready for phase 2; it holds the state needed to continue instead.
+//
+// A paused job keeps its whole SynthState, so resuming in the same process
+// costs nothing but re-acquiring the DiT: no re-encoding, no serialization.
+// Resume is refused for stateful solvers (dpm3m, stork4) and for CFG runs,
+// where the per-step state is more than the latent and would silently produce
+// a different track.
+bool ace_synth_job_is_paused(const AceSynthJob * job);
+
+// Progress: returns the next step to run, and writes the schedule length to
+// num_steps_out when non-NULL. On a completed job these are equal.
+int ace_synth_job_progress(const AceSynthJob * job, int * num_steps_out);
+
+// Continue a paused job from where it stopped.
+// Returns 0 when the schedule completes, 1 if paused again, -1 on error.
+int ace_synth_job_resume_dit(AceSynth *    ctx,
+                             AceSynthJob * job,
+                             bool (*cancel)(void *) = nullptr,
+                             void * cancel_data     = nullptr);
 
 // Phase 2: latent splice (for repaint/lego) + VAE decode. Acquires the VAE
 // decoder from the store; in STRICT this evicts the DiT from phase 1

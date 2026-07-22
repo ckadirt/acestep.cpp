@@ -128,6 +128,15 @@ struct SynthState {
     std::vector<float> noise;
     std::vector<float> output;
 
+    // Resume state for the DiT loop. xt_state holds the flow matching latent
+    // entering step resume_step, laid out [batch_n, T, Oc] exactly like output.
+    // resume_step == 0 means "start from noise"; a value in (0, num_steps)
+    // means a previous run was paused there and this one continues it.
+    // Together with the request these are the whole of a resume token: every
+    // other field in this struct is re-derived from the request on reload.
+    std::vector<float> xt_state;
+    int                resume_step;
+
     // debug / timing
     DebugDumper dbg;
     Timer       timer;
@@ -139,4 +148,12 @@ struct SynthState {
 struct AceSynthJob {
     SynthState state;
     int        batch_n;
+
+    // Set when the DiT loop stopped early on a cancel callback. The job is
+    // kept alive rather than deleted, so ace_synth_job_resume_dit can pick it
+    // up with no serialization at all: state already holds the context,
+    // encoder hidden states, schedule and seeds.
+    bool       paused;
+    int        next_step;   // step to resume at, valid when paused
+    int        num_steps;   // total steps in the schedule, for progress
 };

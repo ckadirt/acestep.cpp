@@ -15,3 +15,9 @@ link_ggml_backends(test-model-store)
 add_executable(test-lm-prompt test-lm-prompt.cpp)
 target_link_libraries(test-lm-prompt PRIVATE acestep-core)
 link_ggml_backends(test-lm-prompt)
+
+# test-dit-resume: pause the flow matching loop mid-schedule and prove the
+# resumed run reaches byte-identical latents.
+add_executable(test-dit-resume test-dit-resume.cpp)
+target_link_libraries(test-dit-resume PRIVATE acestep-core)
+link_ggml_backends(test-dit-resume)

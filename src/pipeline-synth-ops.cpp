@@ -848,17 +848,34 @@ int ops_dit_generate(const AceSynth * ctx, int batch_n, SynthState & s, bool (*c
         dit->use_flash_attn = false;
     }
 
+    // xt_state carries the flow matching latent across a pause. Sized once;
+    // a resumed call finds it already populated by the run that paused.
+    const size_t n_total = (size_t) batch_n * s.Oc * s.T;
+    if (s.xt_state.size() != n_total) {
+        s.xt_state.assign(n_total, 0.0f);
+    }
+
     s.timer.reset();
-    int dit_rc = dit_ggml_generate(
+    int stop_step = s.num_steps;
+    int dit_rc    = dit_ggml_generate(
         dit, s.noise.data(), s.context.data(), s.enc_hidden.data(), s.enc_S, s.T, batch_n, s.num_steps,
         s.schedule.data(), s.output.data(), s.guidance_scale, &s.dbg,
         s.context_silence.empty() ? nullptr : s.context_silence.data(), s.cover_steps, cancel, cancel_data,
         s.per_enc_S.data(), s.enc_hidden_nc.empty() ? nullptr : s.enc_hidden_nc.data(),
         s.per_enc_S_nc_final.empty() ? nullptr : s.per_enc_S_nc_final.data(), s.seeds.data(), ctx->params.use_batch_cfg,
-        s.rr.dcw_scaler, s.rr.dcw_high_scaler, s.rr.dcw_mode.c_str(), s.rr.solver.c_str(), s.rr.stork_substeps);
-    if (dit_rc != 0) {
+        s.rr.dcw_scaler, s.rr.dcw_high_scaler, s.rr.dcw_mode.c_str(), s.rr.solver.c_str(), s.rr.stork_substeps,
+        s.resume_step, s.xt_state.data(), &stop_step);
+    if (dit_rc < 0) {
         return -1;
     }
+    if (dit_rc == 1) {
+        // Paused. xt_state and resume_step together with the request are all a
+        // later run needs; nothing else is captured here.
+        s.resume_step = stop_step;
+        fprintf(stderr, "[DiT-Generate] Paused at step %d/%d after %.1f ms\n", stop_step, s.num_steps, s.timer.ms());
+        return 1;
+    }
+    s.resume_step = s.num_steps;
     fprintf(stderr, "[DiT-Generate] Total: %.1f ms (%.1f ms/sample)\n", s.timer.ms(), s.timer.ms() / batch_n);
 
     // Latent post-processing before VAE decode: pred = pred * rescale + shift.

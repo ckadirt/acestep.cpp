@@ -66,6 +66,18 @@ static int synth_batch_run(AceSynth *                             ctx,
             }
             return -1;
         }
+        // A paused job stopped mid-schedule and has no latents yet. This
+        // runner is the run-to-completion path used by the CLI and the
+        // server, so a pause here means the caller cancelled and wants out:
+        // treat it exactly as the old NULL return did. Callers that want to
+        // continue instead use ace_synth_job_resume_dit on the job directly,
+        // which this helper deliberately does not do for them.
+        if (ace_synth_job_is_paused(jobs[g])) {
+            for (int j = 0; j <= g; j++) {
+                ace_synth_job_free(jobs[j]);
+            }
+            return -1;
+        }
         audio_off[g] = off;
         off += gn;
     }
