@@ -80,29 +80,34 @@ Audio is equivalent to desktop: RMS 2861.5 against 2808.8 on x86_64 CPU and
 
 | Threads | DiT | VAE | Total |
 |---:|---:|---:|---:|
-| 2 (big cores only) | 37.7 s | **25.2 s** | 62.9 s |
-| 3 (**the built-in default**) | 38.1 s | 42.9 s | **81.1 s** |
-| 6 (all cores) | **32.5 s** | 28.7 s | **61.2 s** |
+| 2 (big cores only) | 37.7 s | 25.2 s | 62.9 s |
+| 3 (**the old default**) | 38.1 s | 42.9 s | **81.1 s** |
+| 6 | 32.5 s | 28.7 s | 61.2 s |
+| 8 = all cores (**the current default**) | **28.2 s** | **22.0 s** | **50.2 s** |
 
-The default is `hardware_concurrency() / 2`, which assumes logical/2 means
-"physical cores". That holds for an SMT desktop. Here `nproc` reports 6, so
-it picks 3 — and 3 is the **worst** of the three, 32% slower overall than
-either neighbour.
+The old default was `hardware_concurrency() / 2`, which assumes logical/2
+means "physical cores". That holds for an SMT desktop. This SoC has no SMT,
+so halving simply discarded cores — and it landed on 3, which is both big
+cores plus one little one. The little core strands every barrier while the
+fast cores wait: the VAE took 42.9 s against 25.2 s at two threads.
 
-The VAE is where it hurts: 42.9 s at 3 threads against 25.2 s at 2. Three
-threads is two big cores plus one little one, and the little core becomes the
-straggler at every barrier; the fast cores spend their time waiting. Two
-threads avoids the little cores entirely; six has enough parallelism to
-absorb them.
+The current default checks `/sys/devices/system/cpu/smt/active` and only
+halves when SMT is really present. Here that yields all cores, which is
+**38% faster end to end** than the old default and is the best of every count
+tried, on both stages.
 
-**Set the thread count explicitly on mobile.** Either
-`cantor_load_opts.n_threads`, `ace_engine_set_n_threads()`, or the
-`GGML_N_THREADS` environment variable for benchmarking. Six was marginally
-best here, but two is within 3% and draws far less power — worth measuring
-per device rather than assuming.
+Note the core count is not stable: `nproc` reported 6 during one session and
+`/proc/cpuinfo` lists 8, because Android parks cores. The old heuristic
+therefore picked 3 or 4 depending on when it was asked.
 
-Single runs, no thermal soak. The 3-thread VAE gap is large enough to be
-signal; the 2-vs-6 difference is within run-to-run noise.
+Explicit control remains available and is still worth using on mobile —
+`cantor_load_opts.n_threads`, `ace_engine_set_n_threads()`, `--threads N` on
+the CLI, or `GGML_N_THREADS` for benchmarking. Two threads is 25% slower
+here but uses a quarter of the cores, which may be the trade you want on
+battery.
+
+Single runs, no thermal soak, device at 32.8 degC throughout — so these are
+cold-device numbers and sustained generation will likely be slower.
 
 ## Not done yet
 

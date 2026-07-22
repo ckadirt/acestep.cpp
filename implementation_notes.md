@@ -783,3 +783,79 @@ far too large to be noise; the 2-vs-6 difference is within it.
 - Peak RSS on device never measured; `vae_chunk` 512 never tried.
 - `libcantor_engine.so` was pushed but nothing on-device loaded it — the
   test used the `ace-synth` CLI, not the ABI.
+
+---
+
+## Thread default fixed — **done**
+
+Commit: `backend: only halve the thread count when SMT actually exists`
+
+### The fix
+
+`hardware_concurrency() / 2` unconditionally. The halving is right where SMT
+exists — GEMM shares SIMD units across hyperthreads — and pure loss where it
+does not. Now checks `/sys/devices/system/cpu/smt/active` and only halves
+when the answer is 1. Unknown (non-Linux, or no sysfs node) keeps the old
+behaviour rather than guessing a new one.
+
+Plus `--threads N` on `ace-synth`, which had no way to set it at all.
+
+| Machine | SMT | Before | After |
+|---|---|---|---|
+| Desktop, 12 logical / 6 physical | 1 | 6 | 6 — unchanged |
+| Snapdragon 695 | 0 | 3 | 8 |
+
+Phone, 6-second track:
+
+| Threads | DiT | VAE | Total |
+|---:|---:|---:|---:|
+| 2 | 37.7 s | 25.2 s | 62.9 s |
+| 3 (old default) | 38.1 s | 42.9 s | **81.1 s** |
+| 6 | 32.5 s | 28.7 s | 61.2 s |
+| 8 (new default) | **28.2 s** | **22.0 s** | **50.2 s** |
+
+**38% faster end to end** than the old default. x86 render still hashes
+`607dd0ea…`; `test-abi` 11/11.
+
+### Deviation 21 — an earlier conclusion here was wrong
+
+Deviation 20 argued against big.LITTLE topology detection partly on the
+grounds that *no single thread count is optimal even per-device*, citing the
+DiT preferring 6 threads and the VAE preferring 2.
+
+**That was an artifact of only having measured 2, 3 and 6.** At 8 threads
+both stages are fastest. The little cores are a win when they are not left
+stranding a barrier; the 3-thread pathology was about the *ratio*, not about
+little cores being useless.
+
+The conclusion — do not build topology detection into the engine — still
+holds, but for a simpler and better reason than the one given: **all cores
+wins**, so there is nothing to detect. The per-stage argument was overstated
+and is withdrawn.
+
+### Deviation 22 — `static` in a header silently duplicated the backend cache
+
+Found because `--threads 3` printed `CPU threads: 6`. The flag parsed fine;
+the value went into a different variable than the one that was read.
+
+`backend.h` declared `g_backend_cache`, `g_backend_refs` and
+`g_backend_n_threads` as file-scope `static` **in a header**. That is
+internal linkage: every translation unit including it gets a private copy.
+`ace_engine_set_n_threads` lives in `pipeline-synth.cpp` and set that TU's
+copy; `backend_init` runs from `model-store.cpp` and read a different one.
+
+This was a pre-existing latent bug, not new — and worse than the thread knob
+suggests. `ace_synth_backend_name` (added in Part 6) calls `backend_init`
+from `pipeline-synth.cpp`, so it was operating on a **second, private backend
+cache with its own refcount**, quietly creating and destroying a backend
+behind the real one's back instead of hitting the shared cache the comment
+promised.
+
+Fixed by moving all three into function-local statics inside `inline`
+functions, which C++ guarantees to be one instance program-wide, with the
+`g_*` names preserved as macros so call sites are unchanged.
+
+Worth generalising: **`static` at file scope in a header is per-TU state
+wearing the costume of a global.** The comment above these three said
+"shared across all modules in the same binary" and had been wrong since it
+was written.
