@@ -21,3 +21,11 @@ link_ggml_backends(test-lm-prompt)
 add_executable(test-dit-resume test-dit-resume.cpp)
 target_link_libraries(test-dit-resume PRIVATE acestep-core)
 link_ggml_backends(test-dit-resume)
+
+# test-abi: drive the engine through cantor_engine.h. Written in C on
+# purpose: a C++ test would not catch a header that only compiles as C++.
+add_executable(test-abi test-abi.c)
+target_include_directories(test-abi PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test-abi PRIVATE acestep-core)
+set_target_properties(test-abi PROPERTIES LINKER_LANGUAGE CXX)
+link_ggml_backends(test-abi)

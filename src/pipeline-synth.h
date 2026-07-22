@@ -11,6 +11,7 @@
 #include "request.h"
 
 #include <cstdlib>
+#include <vector>
 
 struct AceSynth;
 struct AceSynthJob;
@@ -119,6 +120,42 @@ int ace_synth_job_run_vae(AceSynth *    ctx,
                           AceAudio *    out,
                           bool (*cancel)(void *) = nullptr,
                           void * cancel_data     = nullptr);
+
+// --- support for serialized (cross-restart) resume ---
+//
+// In-process resume needs none of this: the job holds everything. These exist
+// so a caller can persist a paused job and rebuild it in a later process.
+
+// A cancel callback that always fires. Passing this to ace_synth_job_run_dit
+// runs phase 1 up to and including the conditioning, then pauses entering
+// step 0 - which is exactly the state a restored job needs before its saved
+// latent is written into it.
+bool ace_synth_abort_immediately(void * unused);
+
+// The paused latent, laid out [batch_n, T, Oc]. NULL when the job is not
+// paused. Owned by the job.
+const float * ace_synth_job_get_xt(const AceSynthJob * job, int * batch_n_out, int * T_out, int * Oc_out);
+
+// Overwrite a paused job's latent and step with saved ones. n_floats must
+// match the job's own layout, which is what catches a blob built for a
+// different duration or batch size. Returns false and records an error
+// otherwise.
+bool ace_synth_job_restore(AceSynthJob * job, int step, const float * xt, size_t n_floats);
+
+// ggml backend name the synth context will compute on, e.g. "CPU", "CUDA0".
+// Stamped into a paused blob so a resume elsewhere can be refused.
+const char * ace_synth_backend_name(AceSynth * ctx);
+
+// Decode a latent [T, 64] straight to planar stereo 48kHz, without a job.
+// This is the DECODE stage: the one place audio comes out of a latent that
+// did not just come out of the DiT. Returns false on error or cancel.
+bool ace_synth_decode_latent(AceSynth *           ctx,
+                             const float *        latent,
+                             int                  T_latent,
+                             std::vector<float> & out,
+                             int *                n_samples_out,
+                             bool (*cancel)(void *) = nullptr,
+                             void * cancel_data     = nullptr);
 
 void ace_synth_job_free(AceSynthJob * job);
 

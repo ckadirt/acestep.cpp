@@ -111,6 +111,7 @@ endif()
 
 # Core library (shared between binaries)
 add_library(acestep-core STATIC
+    src/abi.cpp
     src/request.cpp
     src/model-store.cpp
     src/pipeline-lm.cpp
@@ -119,6 +120,7 @@ add_library(acestep-core STATIC
     src/pipeline-understand.cpp
 )
 target_link_libraries(acestep-core PUBLIC yyjson)
+target_include_directories(acestep-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 link_ggml_backends(acestep-core)
 
 # ace-synth: full pipeline (text-enc + cond + dit + vae + wav)

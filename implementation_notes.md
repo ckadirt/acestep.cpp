@@ -385,3 +385,114 @@ still stands and is now the accurate description of the remaining slack.
 - `vae_chunk` / thread count / quirk flags are not yet reachable from a load
   options struct — that surface arrives with Part 6.
 - Reporting resident bytes across the ABI: blocked on Part 6.
+
+---
+
+## Part 6 · The stage seam — **done**
+
+Commit: `part6: add the stage ABI`
+
+Taken after 7 and 8 rather than before, because it is the surface those
+capabilities are exposed through and building it last meant it could expose
+what actually exists rather than what was planned. Doing it also completed
+Part 7's cross-restart persistence, since the DIFFUSE state blob *is* the
+persistence format.
+
+### What was built
+
+- **`include/cantor_engine.h`** — `CANTOR_ENGINE_ABI 1`, the four stages,
+  `cantor_status` (`DONE` / `PAUSED` / `ERR`), `cantor_error` (the Part 5
+  classes re-exported), `cantor_load_opts`, progress and cancel callbacks,
+  `cantor_engine_run_stage`, plus `cantor_engine_stages()` as a bitmask.
+- **`src/abi.cpp`** — the shim. Decodes a blob, calls a pipeline, encodes the
+  result.
+- **Serialized resume**, which is Part 7's outstanding item: a paused DIFFUSE
+  blob is `DiffuseHeader` + request JSON + latent, stamping the backend name
+  and solver so a resume elsewhere can be refused.
+- **Five supporting entry points** in `pipeline-synth.h`:
+  `ace_synth_abort_immediately`, `ace_synth_job_get_xt`,
+  `ace_synth_job_restore`, `ace_synth_backend_name`,
+  `ace_synth_decode_latent`.
+- **`tests/test-abi.c`** — nine checks, written in C.
+
+### Verification
+
+```
+[ABI-Test] abi=1 model=acestep stages=0x1e
+[ABI-Test] PASS: DIFFUSE produced a latent
+[ABI-Test] PASS: DECODE produced audio
+[ABI-Test] PASS: saved latent reproduced the audio exactly
+[ABI-Test] PASS: DIFFUSE paused and emitted a resumable blob
+[ABI-Test] PASS: cross-restart resume is byte-identical to the uninterrupted run
+[ABI-Test] PASS: missing model reported, harness alive
+[ABI-Test] PASS: unknown component role reported, harness alive
+[ABI-Test] PASS: malformed state blob reported, harness alive
+[ABI-Test] PASS: malformed latent reported, harness alive
+[ABI-Test] ALL PASS
+```
+
+The paused blob is **77273 bytes** for a 12 s track: 76800 of latent, 473 of
+header and request JSON. It survives a full `cantor_engine_free` and resumes
+in a fresh context to a byte-identical result.
+
+This also closes **Deviation 6**: Milestone 5's "harness still running" check
+now has a harness. Four failure paths are exercised across the ABI boundary
+and the process survives every one.
+
+### Deviation 12 — rebuilding a job to restore into it
+
+The plan describes cross-restart resume as "serialize `{request, step, xt}`
+and reload", which reads as though the state can be poured into a fresh job.
+It cannot: `SynthState` also holds the conditioning (context, encoder hidden
+states, schedule, seeds), and by design none of that is in the blob.
+
+So a serialized resume runs phase 1 again with a cancel callback that fires
+immediately (`ace_synth_abort_immediately`). That performs the encoding,
+builds the context, and pauses entering step 0 — producing a job whose shape
+is guaranteed to match the blob because both came from the same request.
+`ace_synth_job_restore` then overwrites the latent and step, and the normal
+in-process resume takes it from there.
+
+Cost on the reference workload: the re-derivation is the text encoder and
+cond encoder, and the DiT call itself pauses in 1.6 ms. That is the price of
+keeping the blob at 77 KB instead of ~6 MB, and it is the right trade.
+
+The size check in `ace_synth_job_restore` is doing real work here: because
+the rebuilt job's layout comes from the request, a blob whose latent does not
+match is a blob built for a different duration, batch size or model. That is
+the check that catches it.
+
+### Deviation 13 — a shim bug the error tests caught
+
+The first version of `cantor_engine_load` built the synth context only when
+dit, embed and vae were all present, and otherwise left it NULL and returned
+success. A context loaded with nothing but a **nonexistent** DiT path
+therefore reported success and failed later at `run_stage`, or never.
+
+The ABI test caught it on the first run. `cantor_engine_load` now rejects a
+partial synth set and a component set that serves no stage at all. Worth
+recording because it is the failure mode Part 5 exists to prevent,
+reintroduced one layer up: a problem reported at the wrong moment, or not at
+all.
+
+### Deviation 14 — progress callback accepted but not yet emitted
+
+`cantor_progress_fn` is in the header, plumbed into `cantor_ctx`, and
+accepted by `run_stage`. It is **not yet called**: the DiT step loop, VAE tile
+loop and LM token loop each need a call site, and the pipelines currently take
+a bare cancel callback with no progress companion.
+
+The test passes a progress function and would print if it fired. It does not.
+**Outstanding** — the ABI shape is right, the emission is missing, and callers
+should not rely on it yet.
+
+---
+
+## Remaining work
+
+| Item | Part | Note |
+|---|---|---|
+| Emit progress from the three loops | 6 | header and plumbing done, call sites missing |
+| LM token checkpoint + re-prefill resume | 7 | not started; DiT resume does not cover PLAN/CODES |
+| Device measurements and tuning | 8 | nothing here has run on a GPU or a phone |
+| `vae_chunk` / threads / quirks through load opts | 8 | fields exist in `cantor_load_opts`; `n_threads` is not yet wired to the backend |
