@@ -26,18 +26,32 @@
 extern "C" {
 #endif
 
+// Export marker. The shared library is built with hidden visibility so that
+// only these symbols are reachable from the host - acestep-core's internals
+// and ggml's stay private, which keeps them from colliding with whatever the
+// host has already loaded.
+#if defined(_WIN32)
+#  if defined(CANTOR_ENGINE_BUILD)
+#    define CANTOR_API __declspec(dllexport)
+#  else
+#    define CANTOR_API __declspec(dllimport)
+#  endif
+#else
+#  define CANTOR_API __attribute__((visibility("default")))
+#endif
+
 #define CANTOR_ENGINE_ABI 1
 
 // ---------------------------------------------------------------- discovery
 
 // Called first. The node refuses a value it does not know.
-uint32_t cantor_engine_abi_version(void);
+CANTOR_API uint32_t cantor_engine_abi_version(void);
 
 // Which model family this build understands, e.g. "acestep". Static string.
-const char * cantor_engine_model(void);
+CANTOR_API const char * cantor_engine_model(void);
 
 // Build identifier (git describe), for logs and bug reports. Static string.
-const char * cantor_engine_version(void);
+CANTOR_API const char * cantor_engine_version(void);
 
 // ------------------------------------------------------------------- stages
 
@@ -51,7 +65,7 @@ typedef enum {
 // Bitmask of the stages this build can run, so a cut-down or CPU-only engine
 // can advertise honestly instead of failing at call time.
 // Bit position is the stage value: (1u << CANTOR_STAGE_DIFFUSE) etc.
-uint32_t cantor_engine_stages(void);
+CANTOR_API uint32_t cantor_engine_stages(void);
 
 typedef enum {
     CANTOR_DONE   = 0,   // stage complete; state_out feeds the next stage
@@ -70,8 +84,8 @@ typedef enum {
     CANTOR_ERR_OTHER   = 5,
 } cantor_error;
 
-cantor_error cantor_engine_last_error_code(void);
-const char * cantor_engine_last_error(void);
+CANTOR_API cantor_error cantor_engine_last_error_code(void);
+CANTOR_API const char * cantor_engine_last_error(void);
 
 // ----------------------------------------------------------------- contexts
 
@@ -111,9 +125,9 @@ typedef struct {
 } cantor_load_opts;
 
 // Load an engine context. Returns NULL on failure; see the error accessors.
-cantor_ctx * cantor_engine_load(const cantor_component * components, size_t n, const cantor_load_opts * opts);
+CANTOR_API cantor_ctx * cantor_engine_load(const cantor_component * components, size_t n, const cantor_load_opts * opts);
 
-void cantor_engine_free(cantor_ctx * ctx);
+CANTOR_API void cantor_engine_free(cantor_ctx * ctx);
 
 // ---------------------------------------------------------------- callbacks
 
@@ -140,7 +154,7 @@ typedef int (*cantor_cancel_fn)(void * userdata);
 //
 // *state_out is allocated by the engine; release it with
 // cantor_engine_free_blob. It is NULL when a stage produces no blob.
-cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
+CANTOR_API cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
                                       cantor_stage       stage,
                                       const uint8_t *    state_in,
                                       size_t             in_len,
@@ -150,17 +164,17 @@ cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
                                       cantor_cancel_fn   should_cancel,
                                       void *             userdata);
 
-void cantor_engine_free_blob(uint8_t * blob);
+CANTOR_API void cantor_engine_free_blob(uint8_t * blob);
 
 // DECODE writes audio here rather than into a state blob: it is the one
 // stage whose output is not another stage's input.
 // samples is planar stereo [L0..Ln, R0..Rn], n_samples per channel.
 // Valid until the next run_stage call on the same context.
-const float * cantor_engine_audio(cantor_ctx * ctx, int * n_samples, int * sample_rate);
+CANTOR_API const float * cantor_engine_audio(cantor_ctx * ctx, int * n_samples, int * sample_rate);
 
 // Observability: bytes currently resident, and how many modules.
-uint64_t cantor_engine_resident_bytes(cantor_ctx * ctx);
-int      cantor_engine_resident_modules(cantor_ctx * ctx);
+CANTOR_API uint64_t cantor_engine_resident_bytes(cantor_ctx * ctx);
+CANTOR_API int      cantor_engine_resident_modules(cantor_ctx * ctx);
 
 #ifdef __cplusplus
 }

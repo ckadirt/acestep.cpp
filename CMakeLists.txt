@@ -111,7 +111,6 @@ endif()
 
 # Core library (shared between binaries)
 add_library(acestep-core STATIC
-    src/abi.cpp
     src/request.cpp
     src/model-store.cpp
     src/pipeline-lm.cpp
@@ -122,6 +121,55 @@ add_library(acestep-core STATIC
 target_link_libraries(acestep-core PUBLIC yyjson)
 target_include_directories(acestep-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 link_ggml_backends(acestep-core)
+
+# cantor-engine: the shared library the node dlopens. This is the shipped
+# artifact; acestep-core is an implementation detail of it.
+#
+# Built with hidden visibility so the .so exports only the cantor_engine_*
+# surface. Without that every acestep-core and ggml symbol is public and can
+# collide with whatever the host process already has loaded - which for a
+# node that may also link its own copy of ggml one day is not hypothetical.
+#
+# PIC on the static dependencies is what makes linking them into a shared
+# library legal at all; without it the link fails outright.
+# Both preset properties are needed, and on the STATIC libraries rather than
+# only on the shared one: visibility is decided when a translation unit is
+# compiled, so symbols already public in acestep-core.a or yyjson.a get
+# re-exported no matter what the shared target says. yyjson is C, which is
+# why C_VISIBILITY_PRESET is here too - the CXX one does not reach it.
+set_target_properties(acestep-core PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    C_VISIBILITY_PRESET hidden
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+)
+set_target_properties(yyjson PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    C_VISIBILITY_PRESET hidden
+    CXX_VISIBILITY_PRESET hidden
+)
+
+add_library(cantor-engine SHARED src/abi.cpp)
+set_target_properties(cantor-engine PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+    OUTPUT_NAME cantor_engine
+)
+target_compile_definitions(cantor-engine PRIVATE CANTOR_ENGINE_BUILD)
+target_link_libraries(cantor-engine PRIVATE acestep-core)
+
+# Visibility flags alone do not hold: a dependency that declares its own
+# symbols with visibility("default") beats -fvisibility=hidden, and
+# vendor/yyjson does. The version script is what actually decides the export
+# list. ELF only; Mach-O and PE would need their own mechanism.
+if(CMAKE_SYSTEM_NAME MATCHES "Linux|FreeBSD")
+    target_link_options(cantor-engine PRIVATE
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cantor_engine.map")
+    set_target_properties(cantor-engine PROPERTIES
+        LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/cantor_engine.map)
+endif()
+
+link_ggml_backends(cantor-engine)
 
 # ace-synth: full pipeline (text-enc + cond + dit + vae + wav)
 add_executable(ace-synth tools/ace-synth.cpp)

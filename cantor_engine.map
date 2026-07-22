@@ -1,0 +1,15 @@
+# Linker version script: the export list of libcantor_engine.so.
+#
+# Compiler visibility flags are not sufficient on their own. A dependency can
+# declare its own symbols with __attribute__((visibility("default"))) and win
+# over -fvisibility=hidden - vendor/yyjson does exactly that. This says what
+# leaves the library regardless of what any dependency asked for.
+#
+# Anything not matched here is local, so adding a public function means adding
+# it to the header AND keeping this pattern able to match it.
+{
+    global:
+        cantor_engine_*;
+    local:
+        *;
+};

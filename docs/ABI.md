@@ -236,11 +236,17 @@ The reason these refuse instead of degrading gracefully: a drifted resume does
 not sound broken. It quietly produces a *different song*. That is the kind of
 wrongness a user has no way to detect, so failing is the honest answer.
 
-> **Not yet enforced:** resuming on a different **backend** than the blob was
-> paused on. The backend name is stamped into the paused `DIFFUSE` blob but
-> the check is not wired up. Re-deriving the conditioning through different
-> kernels makes the remaining trajectory drift. Until this is enforced, pin a
-> resumable job to the device it started on yourself.
+- **A different backend than the blob was paused on.** Stamped and checked
+  before any work is done:
+
+  ```
+  [ABI] cannot resume: blob was paused on backend 'CPU', this engine runs on
+  'Vulkan0'. Resume on the device the job started on.
+  ```
+
+  Resume determinism is guaranteed *within* a backend — verified byte-exact on
+  both CPU and Vulkan/RADV — but not across them, because re-deriving the
+  conditioning through different kernels makes the trajectory drift.
 
 ---
 

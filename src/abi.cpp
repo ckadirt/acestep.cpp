@@ -447,13 +447,24 @@ static cantor_status run_diffuse(cantor_ctx *    c,
         // different kernels, so the remaining trajectory diverges: the output
         // is a different track, not a broken one, which is exactly the kind of
         // difference a user cannot see.
-        const char * want = hdr.backend;
         if (req.solver != std::string(hdr.solver)) {
             ace_set_error(ACE_ERR_INTERNAL, "[ABI] cannot resume: blob was paused on solver '%s', request asks '%s'",
                           hdr.solver, req.solver.c_str());
             return CANTOR_ERR;
         }
-        (void) want;  // backend match is checked below, once the job exists
+        // Backend match. Resuming re-derives the conditioning, and a different
+        // backend runs that through different kernels, so the remaining
+        // trajectory diverges. The output is a different track rather than a
+        // broken one - the kind of wrongness nobody can see - so refuse.
+        // Checked before any work is done, not after.
+        const char * have = ace_synth_backend_name(c->synth);
+        if (strncmp(hdr.backend, have, sizeof(hdr.backend)) != 0) {
+            ace_set_error(ACE_ERR_INTERNAL,
+                          "[ABI] cannot resume: blob was paused on backend '%s', this engine runs on '%s'. "
+                          "Resume on the device the job started on.",
+                          hdr.backend, have);
+            return CANTOR_ERR;
+        }
 
         // Rebuild phase 1 up to the DiT, then hand it the saved latent. There
         // is no cheaper route: the conditioning is not in the blob by design.

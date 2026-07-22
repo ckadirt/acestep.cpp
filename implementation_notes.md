@@ -662,3 +662,66 @@ Worth being exact, because it is easy to over-read:
   (CI proves that on GPU-less runners), but nothing has run it.
 - **Nothing has run on a phone.** Adreno/Mali are Vulkan too, but a different
   driver stack from RADV, and `vae_chunk` is untuned for their memory limits.
+
+---
+
+## Backend guard + shared library — **done**
+
+Commit: `abi: enforce the backend stamp; ship a real shared library`
+
+### Backend guard (closes Deviation 17)
+
+The paused DIFFUSE blob always stamped the backend; the check was written and
+then ignored. Now enforced before any work is done. Proven with
+`tests/test-backend-guard.c`, a two-process test so the halves can run under
+different `GGML_BACKEND` values:
+
+| Pause on | Resume on | Result |
+|---|---|---|
+| CPU | CPU | `ACCEPTED (status=0)` |
+| CPU | Vulkan0 | `REFUSED` — *"blob was paused on backend 'CPU', this engine runs on 'Vulkan0'"* |
+
+Both `docs/ABI.md` and `docs/BUILD-VULKAN.md` had a "not yet enforced" caveat.
+Corrected rather than left to rot.
+
+### The shared library
+
+`acestep-core` was STATIC, so nothing existed for the node to `dlopen`. Now
+`libcantor_engine.so` (979 KB), with `abi.cpp` moved out of the static library
+into it — and `test-abi` relinked against the `.so`, so the tests exercise the
+artifact that ships rather than a parallel static build of it.
+
+### Deviation 18 — visibility flags do not control an export list
+
+The obvious approach — `CXX_VISIBILITY_PRESET hidden` on the shared target —
+leaked **66 symbols**. Three separate reasons, each needing its own fix:
+
+1. **Visibility is decided when a translation unit is compiled.** Symbols
+   already public in `acestep-core.a` get re-exported no matter what the
+   shared target declares. The preset has to go on the *static* libraries.
+2. **`CXX_VISIBILITY_PRESET` does not reach C.** yyjson is C; it needs
+   `C_VISIBILITY_PRESET`.
+3. **A dependency can override the flag entirely.** `vendor/yyjson/yyjson.h:336`
+   defines `yyjson_api` as `__attribute__((visibility("default")))`
+   unconditionally on GCC, which beats `-fvisibility=hidden`. No combination
+   of CMake visibility properties can suppress it.
+
+Fixed by adding `cantor_engine.map`, a linker version script, which decides
+the export list regardless of what any dependency asked for. Final surface:
+
+```
+13 symbols, all cantor_engine_*
+```
+
+Worth internalising: **on ELF, a version script is the export list; visibility
+flags are a hint.** If the surface matters, say it in one place the linker
+enforces. ELF-only, so Mach-O (`-exported_symbols_list`) and PE (`.def`) would
+need their own if those platforms ever matter.
+
+### Still open
+
+- CUDA remains unvalidated — no NVIDIA hardware here.
+- Nothing has run on a phone.
+- The `.so` is built per-configuration; the
+  `libcantor_acestep_<backend>_<arch>.so` naming and the plugins-vs-baked-in
+  packaging decision are not made yet.

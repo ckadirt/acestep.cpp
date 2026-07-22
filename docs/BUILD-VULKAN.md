@@ -85,6 +85,7 @@ different kernels, different float ordering.
 Vulkan**, the same guarantee as CPU. Resume determinism therefore holds
 within a backend on real GPU hardware, not only on CPU.
 
-It does **not** say anything about resuming a blob produced on one backend
-and continued on another — that remains unenforced and untested, and the
-paused blob's backend stamp is still written and ignored. See `docs/ABI.md`.
+Resuming a blob across backends is a different matter and is now **refused**,
+not merely undefined — `tests/test-backend-guard.c` pauses on CPU and proves a
+Vulkan resume is rejected by name. Determinism holds within a backend; the
+guard is what stops anyone relying on it across two.

@@ -26,6 +26,16 @@ link_ggml_backends(test-dit-resume)
 # purpose: a C++ test would not catch a header that only compiles as C++.
 add_executable(test-abi test-abi.c)
 target_include_directories(test-abi PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(test-abi PRIVATE acestep-core)
+# Links the shared library, not acestep-core: the point is to exercise the
+# artifact the node actually loads, including its export list.
+target_link_libraries(test-abi PRIVATE cantor-engine)
 set_target_properties(test-abi PROPERTIES LINKER_LANGUAGE CXX)
 link_ggml_backends(test-abi)
+
+# test-backend-guard: two-process check that a paused blob is refused when
+# resumed on a different backend. Needs a build with two backends available.
+add_executable(test-backend-guard test-backend-guard.c)
+target_include_directories(test-backend-guard PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test-backend-guard PRIVATE cantor-engine)
+set_target_properties(test-backend-guard PROPERTIES LINKER_LANGUAGE CXX)
+link_ggml_backends(test-backend-guard)
