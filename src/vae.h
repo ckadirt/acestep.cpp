@@ -474,7 +474,9 @@ static int vae_ggml_decode_tiled(VAEGGML *     m,
                                  int           chunk_size = 256,
                                  int           overlap    = 64,
                                  bool (*cancel)(void *)   = nullptr,
-                                 void * cancel_data       = nullptr) {
+                                 void * cancel_data       = nullptr,
+                                 void (*progress)(int, int, void *) = nullptr,
+                                 void * progress_data     = nullptr) {
     // Ensure positive stride (matches Python effective_overlap reduction)
     while (chunk_size - 2 * overlap <= 0 && overlap > 0) {
         overlap /= 2;
@@ -555,6 +557,9 @@ static int vae_ggml_decode_tiled(VAEGGML *     m,
         ggml_backend_tensor_get(m->graph_output, audio_out + max_T_audio + audio_write_pos,
                                 (tile_T + trim_start) * sizeof(float), core_len * sizeof(float));
         audio_write_pos += core_len;
+        if (progress) {
+            progress(i + 1, num_steps, progress_data);
+        }
     }
 
     // Compact ch1 from offset max_T_audio to offset audio_write_pos

@@ -164,7 +164,10 @@ static int dit_ggml_generate(DiTGGML *           model,
                              // to num_steps on completion.
                              int             start_step         = 0,
                              float *         xt_io              = nullptr,
-                             int *           stop_step_out      = nullptr) {
+                             int *           stop_step_out      = nullptr,
+                             // Progress sink, called once per completed step.
+                             void (*progress)(int, int, void *) = nullptr,
+                             void * progress_data               = nullptr) {
     DiTGGMLConfig & c       = model->cfg;
     int             Oc      = c.out_channels;      // 64
     int             ctx_ch  = c.in_channels - Oc;  // 128
@@ -762,6 +765,9 @@ static int dit_ggml_generate(DiTGGML *           model,
         }
 
         fprintf(stderr, "[DiT] Step %d/%d t=%.3f\n", step + 1, num_steps, t_curr);
+        if (progress) {
+            progress(step + 1, num_steps, progress_data);
+        }
     }
 
     // Batch diagnostic: report per-sample stats to catch corruption

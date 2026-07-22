@@ -38,6 +38,19 @@ struct AceAudio {
     int     sample_rate;  // always 48000
 };
 
+// Progress reporting. Called from inside the long loops (DiT steps, VAE
+// tiles) with units completed and total. A diffuse stage runs for minutes on
+// a phone; without this a UI reads as a hang and users cancel work that was
+// about to finish.
+//
+// Set on the context rather than passed per call: the alternative is
+// threading two more parameters through seven task wrappers that do not
+// otherwise care, and the callback is a property of who is watching, not of
+// which task is running.
+typedef void (*AceProgressFn)(int i, int n, void * userdata);
+
+void ace_synth_set_progress(AceSynth * ctx, AceProgressFn fn, void * userdata);
+
 void ace_synth_default_params(AceSynthParams * p);
 
 // Build a lightweight synth context bound to a ModelStore. Reads DiT metadata

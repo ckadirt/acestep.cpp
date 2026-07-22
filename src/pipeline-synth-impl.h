@@ -35,6 +35,10 @@ struct AceSynth {
     int Oc;      // out_channels (64)
     int ctx_ch;  // in_channels - Oc (128)
 
+    // Progress sink, set via ace_synth_set_progress. NULL = no reporting.
+    AceProgressFn progress;
+    void *        progress_data;
+
     // ModelKeys for the seven GPU modules the pipeline touches.
     ModelKey text_enc_key;   // Qwen3 text encoder, from text_encoder_path
     ModelKey cond_enc_key;   // condition encoder, from dit_path

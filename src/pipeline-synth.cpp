@@ -54,6 +54,8 @@ AceSynth * ace_synth_load(ModelStore * store, const AceSynthParams * params) {
     }
 
     AceSynth * ctx = new AceSynth();
+    ctx->progress      = nullptr;
+    ctx->progress_data = nullptr;
     ctx->store     = store;
     ctx->params    = *params;
 
@@ -741,6 +743,14 @@ int ace_synth_job_resume_dit(AceSynth * ctx, AceSynthJob * job, bool (*cancel)(v
     return rc;
 }
 
+void ace_synth_set_progress(AceSynth * ctx, AceProgressFn fn, void * userdata) {
+    if (!ctx) {
+        return;
+    }
+    ctx->progress      = fn;
+    ctx->progress_data = userdata;
+}
+
 bool ace_synth_abort_immediately(void *) {
     return true;
 }
@@ -828,7 +838,8 @@ bool ace_synth_decode_latent(AceSynth *           ctx,
     out.assign((size_t) 2 * T_audio_max, 0.0f);
 
     int T_audio = vae_ggml_decode_tiled(vae, latent, T_latent, out.data(), T_audio_max, ctx->params.vae_chunk,
-                                        ctx->params.vae_overlap, cancel, cancel_data);
+                                        ctx->params.vae_overlap, cancel, cancel_data, ctx->progress,
+                                        ctx->progress_data);
     if (T_audio < 0) {
         if (cancel && cancel(cancel_data)) {
             ace_set_error(ACE_ERR_CANCELLED, "[Synth-Decode] cancelled");

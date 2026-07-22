@@ -864,7 +864,7 @@ int ops_dit_generate(const AceSynth * ctx, int batch_n, SynthState & s, bool (*c
         s.per_enc_S.data(), s.enc_hidden_nc.empty() ? nullptr : s.enc_hidden_nc.data(),
         s.per_enc_S_nc_final.empty() ? nullptr : s.per_enc_S_nc_final.data(), s.seeds.data(), ctx->params.use_batch_cfg,
         s.rr.dcw_scaler, s.rr.dcw_high_scaler, s.rr.dcw_mode.c_str(), s.rr.solver.c_str(), s.rr.stork_substeps,
-        s.resume_step, s.xt_state.data(), &stop_step);
+        s.resume_step, s.xt_state.data(), &stop_step, ctx->progress, ctx->progress_data);
     if (dit_rc < 0) {
         return -1;
     }
@@ -933,7 +933,8 @@ int ops_vae_decode(const AceSynth * ctx,
 
         s.timer.reset();
         int T_audio = vae_ggml_decode_tiled(vae, dit_out, T_latent, audio.data(), T_audio_max, ctx->params.vae_chunk,
-                                            ctx->params.vae_overlap, cancel, cancel_data);
+                                            ctx->params.vae_overlap, cancel, cancel_data, ctx->progress,
+                                            ctx->progress_data);
         if (T_audio < 0) {
             if (cancel && cancel(cancel_data)) {
                 fprintf(stderr, "[VAE-Decode Batch%d] Cancelled\n", b);

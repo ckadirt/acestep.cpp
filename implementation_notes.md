@@ -475,16 +475,30 @@ recording because it is the failure mode Part 5 exists to prevent,
 reintroduced one layer up: a problem reported at the wrong moment, or not at
 all.
 
-### Deviation 14 — progress callback accepted but not yet emitted
+### Deviation 14 — progress reporting, and where it does not reach
 
-`cantor_progress_fn` is in the header, plumbed into `cantor_ctx`, and
-accepted by `run_stage`. It is **not yet called**: the DiT step loop, VAE tile
-loop and LM token loop each need a call site, and the pipelines currently take
-a bare cancel callback with no progress companion.
+Initially the callback was accepted but never fired. Now emitted from the DiT
+step loop and the VAE tile loop:
 
-The test passes a progress function and would print if it fired. It does not.
-**Outstanding** — the ABI shape is right, the emission is missing, and callers
-should not rely on it yet.
+```
+[ABI-Test]   progress: stage=3 1/8 ... 8/8
+```
+
+The callback is set on the `AceSynth` context (`ace_synth_set_progress`)
+rather than passed per call. Threading two more parameters through the seven
+task wrappers would have been pure churn: none of them care, and the callback
+is a property of who is watching, not of which task is running.
+
+Two gaps remain, both real:
+
+- **The non-tiled VAE path is silent.** `vae_ggml_decode_tiled` returns early
+  to a single direct decode when `T_latent <= chunk_size`, which is the common
+  case for short tracks at the default 1024 chunk — the reference workload
+  (T=300) takes it. That decode is 11 s of the 32 s run and reports nothing.
+  Lowering `vae_chunk` on mobile fixes this as a side effect, which is a point
+  in favour of doing it anyway.
+- **The LM loops emit nothing.** PLAN and CODES report no progress at all.
+  Same mechanism would work; `AceLm` needs the same two fields.
 
 ---
 
@@ -492,7 +506,7 @@ should not rely on it yet.
 
 | Item | Part | Note |
 |---|---|---|
-| Emit progress from the three loops | 6 | header and plumbing done, call sites missing |
+| Progress from the LM loops, and the non-tiled VAE decode | 6 | DiT and tiled VAE done |
 | LM token checkpoint + re-prefill resume | 7 | not started; DiT resume does not cover PLAN/CODES |
 | Device measurements and tuning | 8 | nothing here has run on a GPU or a phone |
 | `vae_chunk` / threads / quirks through load opts | 8 | fields exist in `cantor_load_opts`; `n_threads` is not yet wired to the backend |

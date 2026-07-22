@@ -143,6 +143,15 @@ static bool cancel_tramp(void * ud) {
     return c->cancel ? (c->cancel(c->userdata) != 0) : false;
 }
 
+// The pipelines report progress as (i, n); the ABI adds which stage it was,
+// which only this side knows.
+static void progress_tramp(int i, int n, void * ud) {
+    cantor_ctx * c = (cantor_ctx *) ud;
+    if (c->progress) {
+        c->progress(c->stage, i, n, c->userdata);
+    }
+}
+
 // ------------------------------------------------------------------ loading
 
 extern "C" cantor_ctx * cantor_engine_load(const cantor_component * components,
@@ -516,6 +525,9 @@ extern "C" cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
     ctx->cancel   = should_cancel;
     ctx->userdata = userdata;
     ctx->stage    = stage;
+    if (ctx->synth) {
+        ace_synth_set_progress(ctx->synth, on_progress ? progress_tramp : nullptr, ctx);
+    }
 
     switch (stage) {
         case CANTOR_STAGE_PLAN:
