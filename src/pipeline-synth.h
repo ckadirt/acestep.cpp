@@ -51,6 +51,12 @@ typedef void (*AceProgressFn)(int i, int n, void * userdata);
 
 void ace_synth_set_progress(AceSynth * ctx, AceProgressFn fn, void * userdata);
 
+// Set the CPU thread count before any module loads. 0 keeps the built-in
+// heuristic, which is wrong on big.LITTLE (see backend.h). Must be called
+// before the first module is acquired: an already-created backend keeps the
+// count it was made with.
+void ace_engine_set_n_threads(int n);
+
 void ace_synth_default_params(AceSynthParams * p);
 
 // Build a lightweight synth context bound to a ModelStore. Reads DiT metadata

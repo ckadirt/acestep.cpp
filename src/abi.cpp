@@ -203,6 +203,13 @@ extern "C" cantor_ctx * cantor_engine_load(const cantor_component * components,
         o = *opts;
     }
 
+    // Before anything creates a backend: the thread count is baked in when the
+    // shared backend is first initialised, so setting it later is silently
+    // ignored.
+    if (o.n_threads > 0) {
+        ace_engine_set_n_threads(o.n_threads);
+    }
+
     // Residency policy, in the same precedence the server uses: an explicit
     // keep_loaded outranks a byte target, because "I have room for
     // everything" is not expressible as a number.

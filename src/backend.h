@@ -27,10 +27,36 @@ struct BackendPair {
 static BackendPair g_backend_cache = {};
 static int         g_backend_refs  = 0;
 
+// Explicit thread count, 0 = use the heuristic below. Set once before the
+// first backend_init; later changes do not affect an already-created backend.
+static int g_backend_n_threads = 0;
+
+// Override the CPU thread count.
+//
+// The heuristic is wrong on big.LITTLE. It assumes logical/2 means "physical
+// cores", which holds for SMT desktops and not for a phone: on a 2 big + 6
+// little part it returns 4 and lands three quarters of the work on cores a
+// third the speed, where the fast cores then wait for them at every barrier.
+// Hosts that know the topology should set the big-core count here.
+static void backend_set_n_threads(int n) {
+    g_backend_n_threads = n > 0 ? n : 0;
+}
+
 // Physical core count heuristic (logical / 2 for HT/SMT).
 // Used for GGML CPU thread count: GEMM shares SIMD units across hyperthreads,
 // so one thread per physical core is optimal.
 static int backend_cpu_n_threads(void) {
+    if (g_backend_n_threads > 0) {
+        return g_backend_n_threads;
+    }
+    // Env override, for benchmarking a device without rebuilding. The API
+    // setter wins over it; both win over the heuristic.
+    if (const char * e = std::getenv("GGML_N_THREADS")) {
+        int n = atoi(e);
+        if (n > 0) {
+            return n;
+        }
+    }
     int n = (int) std::thread::hardware_concurrency() / 2;
     return n > 0 ? n : 1;
 }

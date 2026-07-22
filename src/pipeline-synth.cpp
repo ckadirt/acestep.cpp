@@ -743,6 +743,10 @@ int ace_synth_job_resume_dit(AceSynth * ctx, AceSynthJob * job, bool (*cancel)(v
     return rc;
 }
 
+void ace_engine_set_n_threads(int n) {
+    backend_set_n_threads(n);
+}
+
 void ace_synth_set_progress(AceSynth * ctx, AceProgressFn fn, void * userdata) {
     if (!ctx) {
         return;

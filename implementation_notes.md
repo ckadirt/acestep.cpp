@@ -725,3 +725,61 @@ need their own if those platforms ever matter.
 - The `.so` is built per-configuration; the
   `libcantor_acestep_<backend>_<arch>.so` naming and the plugins-vs-baked-in
   packaging decision are not made yet.
+
+---
+
+## Android arm64 — **runs**
+
+Commit: `android: cross-compile, run on-device, wire the thread count`
+
+Device: Xiaomi `veux`, Snapdragon 695 (SM6375), 2 x A78 + 6 x A55, 7.6 GB
+RAM, Android 13, Adreno GPU. Cross-compiled with NDK 27.1, deployed by
+`adb push` to `/data/local/tmp`. Full recipe in `docs/BUILD-ANDROID.md`.
+
+**A 12-second track generates end to end on a mid-range phone**, CPU-only,
+inside memory, no OOM: DiT 72.7 s, VAE decode 89.1 s at `--vae-chunk 256`.
+About 14x slower than realtime. Audio equivalent to desktop (RMS 2861.5 vs
+2808.8 on x86).
+
+### Deviation 19 — `vae_chunk 256` was the right guess, for a checkable reason
+
+The plan asserted 256 on mobile from upstream's table, never measured. It
+does work here: 3 tiles, completes within memory. But nothing measured peak
+RSS and 512 was never tried, so "256 works" is established and "256 is
+necessary" is not. Recorded so the number is not promoted to received wisdom
+on the strength of one passing run.
+
+### Deviation 20 — the default thread heuristic is actively harmful on big.LITTLE
+
+This was predicted in the plan as a thing to fix, and the fix was listed as
+outstanding. Measuring it turned out to matter more than expected, because
+the default is not merely suboptimal, it is the **worst** of the options:
+
+| Threads | DiT | VAE | Total |
+|---:|---:|---:|---:|
+| 2 (big only) | 37.7 s | 25.2 s | 62.9 s |
+| 3 (**default**) | 38.1 s | 42.9 s | **81.1 s** |
+| 6 (all) | 32.5 s | 28.7 s | 61.2 s |
+
+`hardware_concurrency() / 2` assumes logical/2 = physical cores, which is an
+SMT-desktop assumption. `nproc` reports 6 here, so it picks 3 — two big cores
+plus one little one. The little core is the straggler at every barrier and
+the big cores wait on it: the VAE takes **70% longer** than at 2 threads.
+Two avoids the little cores; six has enough parallelism to hide them.
+
+`n_threads` existed in `cantor_load_opts` but was never wired to the backend
+(noted as outstanding in Part 8). Now wired:
+`backend_set_n_threads()` -> `ace_engine_set_n_threads()` -> the ABI load
+option, plus a `GGML_N_THREADS` env override for benchmarking without a
+rebuild. Order of precedence: API setter, then env, then heuristic.
+
+Caveat on the numbers: single runs, no thermal soak. The 3-thread VAE gap is
+far too large to be noise; the 2-vs-6 difference is within it.
+
+### Still open
+
+- Vulkan on Adreno: driver present, build not attempted.
+- CUDA/T4: still unvalidated.
+- Peak RSS on device never measured; `vae_chunk` 512 never tried.
+- `libcantor_engine.so` was pushed but nothing on-device loaded it — the
+  test used the `ace-synth` CLI, not the ABI.
