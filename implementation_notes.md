@@ -600,3 +600,65 @@ proceed and drift. It is called out explicitly in `docs/ABI.md` under pause
 and resume rather than quietly left out. Small fix, but it is a gap between
 what is documented as designed and what the code does, and those are the
 worst kind to leave unrecorded.
+
+---
+
+## Vulkan validation on real hardware — **done**
+
+Commit: `docs: vulkan build without root, and what it validated`
+
+First run of any of this off CPU. Device: AMD Cezanne / Renoir integrated
+GPU, RADV driver, `uma: 1`, `matrix cores: none`.
+
+### Setup
+
+Ubuntu 22.04 has the Vulkan **runtime** (`mesa-vulkan-drivers` ships
+`radeon_icd` and `lvp_icd`, `libvulkan.so` present) but not the **build**
+side. `glslc` is not packaged on 22.04 at all. Configure fails at
+`find_package(SPIRV-Headers)`.
+
+Resolved without root using the LunarG tarball SDK (333 MB, unpacked to a
+scratch dir) — the same SDK CI installs. Full recipe in `docs/BUILD-VULKAN.md`.
+
+### Results
+
+| Stage | CPU (12 threads + BLAS) | Vulkan (RADV) |
+|---|---|---|
+| DiT, 8 steps | 8 727 ms | 5 435 ms |
+| VAE decode | 11 120 ms | 7 791 ms |
+
+Audio equivalent, not bit-identical (expected — different kernels):
+RMS 2808.8 vs 2846.8, both full-scale peak, 100% non-zero.
+
+`test-dit-resume`: **ALL PASS**. `test-abi`: **11/11 PASS**, including the
+cross-restart blob round-trip.
+
+### The open question, answered
+
+The Part 7 notes flagged that DiT resume was proven byte-exact only on CPU.
+It is now proven on RADV too:
+
+```
+[DiT] Paused at step 5/8
+[DiT] Resuming at step 5/8
+[Test] PASS: resumed latents are byte-identical to the reference
+```
+
+**Resume determinism holds within a backend on real GPU hardware.** That was
+the precondition for offering resume as a feature at all, and it is met.
+
+### What this does NOT establish
+
+Worth being exact, because it is easy to over-read:
+
+- **Cross-backend resume is still untested and still unenforced.** A blob
+  paused on CPU and resumed on Vulkan would re-derive the conditioning
+  through different kernels and drift. The backend stamp in the paused blob
+  is still written and ignored (Deviation 17). Nothing here changes that.
+- **This is an iGPU with no matrix cores sharing system RAM.** The speedups
+  are a floor, not a prediction for discrete cards.
+- **CUDA remains entirely unvalidated.** No NVIDIA hardware on this machine;
+  the toolkit is not even installed. Building it needs only the toolkit
+  (CI proves that on GPU-less runners), but nothing has run it.
+- **Nothing has run on a phone.** Adreno/Mali are Vulkan too, but a different
+  driver stack from RADV, and `vae_chunk` is untuned for their memory limits.
