@@ -113,13 +113,29 @@ jobs:
 
           # Blackwell 120a/121a need CMake >= 3.30; fall back rather than fail.
           CUDA_FLAGS=""
+          CUDA_ARCH_FLAG=""
           if [ "${{ matrix.backend }}" = "cuda12" ]; then
+            # nvcc is not on PATH just because the toolkit action succeeded.
+            # buildall.sh exports it and buildcuda.sh passes the compiler
+            # explicitly - this workflow did neither, which is the most likely
+            # reason Configure failed while the toolkit step reported success.
+            export PATH="${CUDA_PATH:-/usr/local/cuda}/bin:$PATH"
+            echo "CUDA_PATH=${CUDA_PATH:-unset}"
+            NVCC="$(command -v nvcc || true)"
+            if [ -n "$NVCC" ]; then
+              echo "nvcc: $NVCC"; nvcc --version | tail -2
+              CUDA_FLAGS="-DCMAKE_CUDA_COMPILER=$NVCC"
+            else
+              echo "WARNING: nvcc not on PATH; letting cmake search"
+              ls -d /usr/local/cuda* 2>/dev/null || true
+            fi
+
             CMV=$(cmake --version | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
             if [ "$(printf '%s\n3.30\n' "$CMV" | sort -V | head -1)" = "3.30" ]; then
-              CUDA_FLAGS="-DCMAKE_CUDA_ARCHITECTURES=${{ env.CUDA_ARCHS }}"
+              CUDA_ARCH_FLAG="-DCMAKE_CUDA_ARCHITECTURES=${{ env.CUDA_ARCHS }}"
             else
               echo "cmake $CMV < 3.30: dropping Blackwell 120a/121a targets"
-              CUDA_FLAGS="-DCMAKE_CUDA_ARCHITECTURES=75-virtual;80-virtual;86-real;89-real;90-real"
+              CUDA_ARCH_FLAG="-DCMAKE_CUDA_ARCHITECTURES=75-virtual;80-virtual;86-real;89-real;90-real"
             fi
           fi
 
@@ -136,7 +152,8 @@ jobs:
             # to cmake on the cpu and vulkan cells and break them; unquoted,
             # the semicolons in the arch list would be read as shell command
             # separators. This form is the only one that is right for both.
-            cmake -B build $COMMON ${{ matrix.extra }} ${CUDA_FLAGS:+"$CUDA_FLAGS"} \
+            cmake -B build $COMMON ${{ matrix.extra }} \
+              ${CUDA_FLAGS:+"$CUDA_FLAGS"} ${CUDA_ARCH_FLAG:+"$CUDA_ARCH_FLAG"} \
               2>&1 | tee configure.log
           fi
 
