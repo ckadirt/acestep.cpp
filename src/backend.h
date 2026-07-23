@@ -5,28 +5,137 @@
 // keep CPU as fallback. This avoids duplicating init logic across
 // qwen3.h, qwen3-lm.h, cond.h, dit.h, vae.h.
 
+#include "error.h"
 #include "ggml-backend.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <thread>
 
 struct BackendPair {
     ggml_backend_t backend;
     ggml_backend_t cpu_backend;
     bool           has_gpu;
+    // False when initialisation failed. Callers must check before using the
+    // handles: backend_init no longer exits the process, so a failed pair is
+    // a value they have to look at.
+    bool           ok;
 };
 
-// Cached backend state (shared across all modules in the same binary)
-static BackendPair g_backend_cache = {};
-static int         g_backend_refs  = 0;
+// Cached backend state, shared across all modules in the same binary.
+//
+// These MUST be function-local statics inside inline functions, not `static`
+// at file scope. This is a header: a file-scope `static` has internal linkage
+// and every translation unit that includes it gets its own private copy, so
+// "shared across all modules" would silently become "one cache per .cpp".
+// That matters because more than one TU calls backend_init - the module
+// loaders through model-store.cpp, and ace_synth_backend_name through
+// pipeline-synth.cpp - and separate caches mean separate refcounts and a
+// second backend created behind the first one's back.
+//
+// C++ guarantees exactly one instance of a local static in an inline
+// function across the whole program, which is the property wanted here.
+inline BackendPair & backend_cache_ref(void) {
+    static BackendPair v = {};
+    return v;
+}
 
-// Physical core count heuristic (logical / 2 for HT/SMT).
-// Used for GGML CPU thread count: GEMM shares SIMD units across hyperthreads,
-// so one thread per physical core is optimal.
+inline int & backend_refs_ref(void) {
+    static int v = 0;
+    return v;
+}
+
+#define g_backend_cache backend_cache_ref()
+#define g_backend_refs  backend_refs_ref()
+
+// Explicit thread count, 0 = use the heuristic below. Set once before the
+// first backend_init; later changes do not affect an already-created backend.
+// Inline-function local for the same reason as the cache above: a file-scope
+// static here would be set in one TU and read in another, and the override
+// would appear to do nothing.
+inline int & backend_n_threads_ref(void) {
+    static int v = 0;
+    return v;
+}
+
+#define g_backend_n_threads backend_n_threads_ref()
+
+// Override the CPU thread count.
+//
+// The heuristic is wrong on big.LITTLE. It assumes logical/2 means "physical
+// cores", which holds for SMT desktops and not for a phone: on a 2 big + 6
+// little part it returns 4 and lands three quarters of the work on cores a
+// third the speed, where the fast cores then wait for them at every barrier.
+// Hosts that know the topology should set the big-core count here.
+static void backend_set_n_threads(int n) {
+    g_backend_n_threads = n > 0 ? n : 0;
+}
+
+// Is simultaneous multithreading actually present?
+//   1  yes    2 logical CPUs share one physical core, so halving is right
+//   0  no     every logical CPU is its own core; halving throws away half
+//  -1  unknown
+//
+// Linux (and therefore Android) answers this directly. Everything else falls
+// back to assuming SMT, which is what the code did unconditionally before.
+static int backend_smt_active(void) {
+#if defined(__linux__)
+    FILE * f = fopen("/sys/devices/system/cpu/smt/active", "r");
+    if (f) {
+        int v = -1;
+        if (fscanf(f, "%d", &v) != 1) {
+            v = -1;
+        }
+        fclose(f);
+        return v;
+    }
+#endif
+    return -1;
+}
+
+// CPU thread count.
+//
+// The old rule was logical/2 unconditionally, on the reasoning that GEMM
+// shares SIMD units across hyperthreads so one thread per physical core is
+// optimal. That reasoning is sound and the rule is still applied - but only
+// where SMT actually exists.
+//
+// On a machine without it the halving is pure loss, and on ARM big.LITTLE it
+// is worse than loss: measured on a Snapdragon 695 (2 big + 6 little,
+// no SMT) the old rule picked 3 threads, which is both big cores plus one
+// little one. The little core strands every barrier and the VAE ran 70%
+// slower than at 2 threads - the worst of every count tried. See
+// docs/BUILD-ANDROID.md.
+//
+// This is deliberately not big.LITTLE-aware, and measurement says it does not
+// need to be: on that phone all 8 cores beat every smaller count on both the
+// DiT and the VAE (28.2s / 22.0s, against 32.5s / 28.7s at six). Using the
+// little cores is a win when they are not left stranding a barrier. Anything
+// finer needs per-device measurement, which belongs in the host that can
+// cache the answer - it sets it through ace_engine_set_n_threads or
+// cantor_load_opts.n_threads.
 static int backend_cpu_n_threads(void) {
-    int n = (int) std::thread::hardware_concurrency() / 2;
+    if (g_backend_n_threads > 0) {
+        return g_backend_n_threads;
+    }
+    // Env override, for benchmarking a device without rebuilding. The API
+    // setter wins over it; both win over the heuristic.
+    if (const char * e = std::getenv("GGML_N_THREADS")) {
+        int n = atoi(e);
+        if (n > 0) {
+            return n;
+        }
+    }
+
+    const int logical = (int) std::thread::hardware_concurrency();
+    if (logical <= 0) {
+        return 1;
+    }
+    // Halve only when SMT is present, or when we cannot tell (preserving the
+    // previous behaviour rather than guessing a new one).
+    const int n = (backend_smt_active() == 0) ? logical : logical / 2;
     return n > 0 ? n : 1;
 }
 
@@ -105,23 +214,52 @@ static BackendPair backend_init(const char * label) {
 
     // GGML_BACKEND env var: force a specific device instead of auto-best.
     // Device names: CUDA0, Vulkan0, CPU, BLAS (see ggml_backend_dev_name).
+    // Device init can THROW, not just fail. ggml-vulkan raises
+    // std::runtime_error out of device selection when a GPU lacks a required
+    // feature - an Adreno 619 with no 16-bit storage does exactly this. Left
+    // unhandled the exception unwinds through this function with the cache
+    // half-built and the refcount already moved, and the process segfaults
+    // during cleanup rather than at the point of failure.
+    //
+    // Catch it here, where the partially-initialised state still lives, and
+    // turn it into the ordinary "no usable backend" failure that every caller
+    // already handles.
+    auto init_device = [&](const char * name) -> ggml_backend_t {
+        try {
+            return name ? ggml_backend_init_by_name(name, nullptr) : ggml_backend_init_best();
+        } catch (const std::exception & e) {
+            ace_set_error(ACE_ERR_NO_BACKEND, "[Load] backend init threw: %s", e.what());
+            return NULL;
+        } catch (...) {
+            ace_set_error(ACE_ERR_NO_BACKEND, "[Load] backend init threw an unknown exception");
+            return NULL;
+        }
+    };
+
     const char * force_backend = std::getenv("GGML_BACKEND");
     if (force_backend) {
-        bp.backend = ggml_backend_init_by_name(force_backend, nullptr);
+        bp.backend = init_device(force_backend);
         if (!bp.backend) {
-            fprintf(stderr, "[Load] FATAL: GGML_BACKEND=%s not found. Available:", force_backend);
-            for (size_t i = 0; i < ggml_backend_dev_count(); i++) {
-                fprintf(stderr, " %s", ggml_backend_dev_name(ggml_backend_dev_get(i)));
+            char avail[256] = { 0 };
+            size_t used     = 0;
+            for (size_t i = 0; i < ggml_backend_dev_count() && used < sizeof(avail) - 1; i++) {
+                int n = snprintf(avail + used, sizeof(avail) - used, " %s",
+                                 ggml_backend_dev_name(ggml_backend_dev_get(i)));
+                if (n > 0) {
+                    used += (size_t) n;
+                }
             }
-            fprintf(stderr, "\n");
-            exit(1);
+            ace_set_error(ACE_ERR_NO_BACKEND, "[Load] GGML_BACKEND=%s not found. Available:%s", force_backend, avail);
+            return bp;  // ok == false
         }
     } else {
-        bp.backend = ggml_backend_init_best();
+        bp.backend = init_device(nullptr);
     }
     if (!bp.backend) {
-        fprintf(stderr, "[Load] FATAL: no backend available\n");
-        exit(1);
+        if (ace_error_code() == ACE_OK) {
+            ace_set_error(ACE_ERR_NO_BACKEND, "[Load] no backend available");
+        }
+        return bp;  // ok == false
     }
     bool best_is_cpu = (strcmp(ggml_backend_name(bp.backend), "CPU") == 0);
     int  n_threads   = backend_cpu_n_threads();
@@ -133,10 +271,15 @@ static BackendPair backend_init(const char * label) {
         bp.cpu_backend = cpu_backend_new(n_threads);
     }
     if (!bp.cpu_backend) {
-        fprintf(stderr, "[Load] FATAL: failed to init CPU backend\n");
-        exit(1);
+        ace_set_error(ACE_ERR_NO_BACKEND, "[Load] failed to init CPU backend");
+        if (bp.backend && bp.backend != bp.cpu_backend) {
+            ggml_backend_free(bp.backend);
+        }
+        bp.backend = NULL;
+        return bp;  // ok == false
     }
     bp.has_gpu = !best_is_cpu;
+    bp.ok      = true;
     fprintf(stderr, "[Load] %s backend: %s (CPU threads: %d)\n", label, ggml_backend_name(bp.backend), n_threads);
 
     g_backend_cache = bp;
@@ -180,8 +323,37 @@ static ggml_backend_sched_t backend_sched_new(BackendPair bp, int max_nodes) {
 
     ggml_backend_sched_t sched = ggml_backend_sched_new(backends, bufts, n, max_nodes, false, true);
     if (!sched) {
-        fprintf(stderr, "[Load] FATAL: failed to create scheduler\n");
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[Load] failed to create scheduler (max_nodes=%d)", max_nodes);
+        return NULL;
     }
     return sched;
+}
+
+// Combined init: backend pair + scheduler, with both failure paths handled.
+// Every module loader opens with exactly this sequence, so it lives here once
+// instead of eight times. On failure the error is already recorded and the
+// backend reference (if any) has been released.
+// Returns false and leaves the out params untouched on failure.
+[[nodiscard]] static bool backend_init_sched(const char *           label,
+                               int                    max_nodes,
+                               ggml_backend_t *       backend_out,
+                               ggml_backend_t *       cpu_out,
+                               ggml_backend_sched_t * sched_out,
+                               bool *                 has_gpu_out) {
+    BackendPair bp = backend_init(label);
+    if (!bp.ok) {
+        return false;
+    }
+    ggml_backend_sched_t sched = backend_sched_new(bp, max_nodes);
+    if (!sched) {
+        backend_release(bp.backend, bp.cpu_backend);
+        return false;
+    }
+    *backend_out = bp.backend;
+    *cpu_out     = bp.cpu_backend;
+    *sched_out   = sched;
+    if (has_gpu_out) {
+        *has_gpu_out = bp.has_gpu;
+    }
+    return true;
 }

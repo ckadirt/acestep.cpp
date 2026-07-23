@@ -54,6 +54,8 @@ AceSynth * ace_synth_load(ModelStore * store, const AceSynthParams * params) {
     }
 
     AceSynth * ctx = new AceSynth();
+    ctx->progress      = nullptr;
+    ctx->progress_data = nullptr;
     ctx->store     = store;
     ctx->params    = *params;
 
@@ -110,7 +112,11 @@ AceSynth * ace_synth_load(ModelStore * store, const AceSynthParams * params) {
 static AceSynthJob * alloc_job(AceSynth * ctx, const AceRequest * reqs, int batch_n) {
     AceSynthJob * job = new AceSynthJob();
     job->batch_n      = batch_n;
+    job->paused       = false;
+    job->next_step    = 0;
+    job->num_steps    = 0;
     SynthState & s    = job->state;
+    s.resume_step     = 0;
     s.Oc              = ctx->Oc;
     s.ctx_ch          = ctx->ctx_ch;
     s.left_pad_sec    = 0.0f;
@@ -275,6 +281,15 @@ static bool pinned_encode_src_and_timbre(AceSynth *    ctx,
     return true;
 }
 
+// Record how a phase 1 run ended on the job. rc == 1 means the DiT loop
+// stopped on a cancel callback: the job stays alive and resumable, holding
+// its whole SynthState, so an in-process resume needs no serialization.
+static void job_mark(AceSynthJob * job, int rc, const SynthState & s) {
+    job->num_steps = s.num_steps;
+    job->paused    = (rc == 1);
+    job->next_step = s.resume_step;
+}
+
 // Common tail every task ends with once its inputs are encoded and flags are
 // posed: resolve params, resolve T, build schedule, encode text, build
 // context, init noise, run DiT. Returns 0 on success, -1 on error/cancel.
@@ -299,10 +314,10 @@ static int run_tail(AceSynth *         ctx,
     }
     ops_build_context_silence(ctx, batch_n, s);
     ops_init_noise(ctx, reqs, batch_n, s);
-    if (ops_dit_generate(ctx, batch_n, s, cancel, cancel_data) != 0) {
-        return -1;
-    }
-    return 0;
+    // 0 = finished, 1 = paused mid-schedule, -1 = error. The pause status has
+    // to survive up to the caller: collapsing it into -1 is what used to make
+    // a cancelled job indistinguishable from a failed one, and thus discarded.
+    return ops_dit_generate(ctx, batch_n, s, cancel, cancel_data);
 }
 
 // text2music: pure generation. No src audio. Optional timbre reference.
@@ -328,10 +343,12 @@ static AceSynthJob * run_text2music(AceSynth *         ctx,
         delete job;
         return NULL;
     }
-    if (run_tail(ctx, reqs, batch_n, s, cancel, cancel_data) != 0) {
+    int rc = run_tail(ctx, reqs, batch_n, s, cancel, cancel_data);
+    if (rc < 0) {
         delete job;
         return NULL;
     }
+    job_mark(job, rc, s);
     return job;
 }
 
@@ -371,10 +388,12 @@ static AceSynthJob * run_cover(AceSynth *         ctx,
     s.noise_blend_latents = s.cover_latents;
     ops_fsq_roundtrip(ctx, s);
 
-    if (run_tail(ctx, reqs, batch_n, s, cancel, cancel_data) != 0) {
+    int rc = run_tail(ctx, reqs, batch_n, s, cancel, cancel_data);
+    if (rc < 0) {
         delete job;
         return NULL;
     }
+    job_mark(job, rc, s);
     return job;
 }
 
@@ -409,10 +428,12 @@ static AceSynthJob * run_cover_nofsq(AceSynth *         ctx,
         delete job;
         return NULL;
     }
-    if (run_tail(ctx, reqs, batch_n, s, cancel, cancel_data) != 0) {
+    int rc = run_tail(ctx, reqs, batch_n, s, cancel, cancel_data);
+    if (rc < 0) {
         delete job;
         return NULL;
     }
+    job_mark(job, rc, s);
     return job;
 }
 
@@ -462,10 +483,12 @@ static AceSynthJob * run_repaint(AceSynth *         ctx,
         delete job;
         return NULL;
     }
-    if (run_tail(ctx, reqs, batch_n, s, cancel, cancel_data) != 0) {
+    int rc = run_tail(ctx, reqs, batch_n, s, cancel, cancel_data);
+    if (rc < 0) {
         delete job;
         return NULL;
     }
+    job_mark(job, rc, s);
     return job;
 }
 
@@ -521,10 +544,12 @@ static AceSynthJob * run_lego(AceSynth *         ctx,
         delete job;
         return NULL;
     }
-    if (run_tail(ctx, reqs, batch_n, s, cancel, cancel_data) != 0) {
+    int rc = run_tail(ctx, reqs, batch_n, s, cancel, cancel_data);
+    if (rc < 0) {
         delete job;
         return NULL;
     }
+    job_mark(job, rc, s);
     return job;
 }
 
@@ -560,10 +585,12 @@ static AceSynthJob * run_extract(AceSynth *         ctx,
         delete job;
         return NULL;
     }
-    if (run_tail(ctx, reqs, batch_n, s, cancel, cancel_data) != 0) {
+    int rc = run_tail(ctx, reqs, batch_n, s, cancel, cancel_data);
+    if (rc < 0) {
         delete job;
         return NULL;
     }
+    job_mark(job, rc, s);
     return job;
 }
 
@@ -599,10 +626,12 @@ static AceSynthJob * run_complete(AceSynth *         ctx,
         delete job;
         return NULL;
     }
-    if (run_tail(ctx, reqs, batch_n, s, cancel, cancel_data) != 0) {
+    int rc = run_tail(ctx, reqs, batch_n, s, cancel, cancel_data);
+    if (rc < 0) {
         delete job;
         return NULL;
     }
+    job_mark(job, rc, s);
     return job;
 }
 
@@ -675,6 +704,159 @@ int ace_synth_job_run_vae(AceSynth *    ctx,
         return -1;
     }
     return ops_vae_decode(ctx, job->batch_n, out, job->state, cancel, cancel_data);
+}
+
+bool ace_synth_job_is_paused(const AceSynthJob * job) {
+    return job && job->paused;
+}
+
+int ace_synth_job_progress(const AceSynthJob * job, int * num_steps_out) {
+    if (!job) {
+        return 0;
+    }
+    if (num_steps_out) {
+        *num_steps_out = job->num_steps;
+    }
+    return job->next_step;
+}
+
+// Continue a paused phase 1 from the step it stopped on. Everything the DiT
+// needs is already in job->state, so this re-acquires the DiT and re-enters
+// the loop: no re-encoding, no re-derivation, no serialization.
+// Returns 0 when the schedule completes, 1 if paused again, -1 on error.
+int ace_synth_job_resume_dit(AceSynth * ctx, AceSynthJob * job, bool (*cancel)(void *), void * cancel_data) {
+    if (!ctx || !job) {
+        return -1;
+    }
+    if (!job->paused) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Synth-Resume] job is not paused");
+        return -1;
+    }
+    SynthState & s = job->state;
+    fprintf(stderr, "[Synth-Resume] Continuing from step %d/%d\n", s.resume_step, s.num_steps);
+
+    int rc = ops_dit_generate(ctx, job->batch_n, s, cancel, cancel_data);
+    if (rc < 0) {
+        return -1;
+    }
+    job_mark(job, rc, s);
+    return rc;
+}
+
+void ace_engine_set_n_threads(int n) {
+    backend_set_n_threads(n);
+}
+
+void ace_synth_set_progress(AceSynth * ctx, AceProgressFn fn, void * userdata) {
+    if (!ctx) {
+        return;
+    }
+    ctx->progress      = fn;
+    ctx->progress_data = userdata;
+}
+
+bool ace_synth_abort_immediately(void *) {
+    return true;
+}
+
+const float * ace_synth_job_get_xt(const AceSynthJob * job, int * batch_n_out, int * T_out, int * Oc_out) {
+    if (!job || !job->paused || job->state.xt_state.empty()) {
+        return nullptr;
+    }
+    if (batch_n_out) {
+        *batch_n_out = job->batch_n;
+    }
+    if (T_out) {
+        *T_out = job->state.T;
+    }
+    if (Oc_out) {
+        *Oc_out = job->state.Oc;
+    }
+    return job->state.xt_state.data();
+}
+
+bool ace_synth_job_restore(AceSynthJob * job, int step, const float * xt, size_t n_floats) {
+    if (!job || !xt) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Synth-Restore] null job or latent");
+        return false;
+    }
+    if (!job->paused) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Synth-Restore] job is not paused");
+        return false;
+    }
+    // The job was rebuilt from the same request, so its layout is the layout
+    // the blob must have. A mismatch means the blob came from a different
+    // duration, batch size or model - catch it here rather than resuming onto
+    // a buffer of the wrong shape.
+    if (n_floats != job->state.xt_state.size()) {
+        ace_set_error(ACE_ERR_INTERNAL,
+                      "[Synth-Restore] latent is %zu floats, this request needs %zu "
+                      "(blob built for a different duration, batch size or model)",
+                      n_floats, job->state.xt_state.size());
+        return false;
+    }
+    if (step < 0 || step >= job->state.num_steps) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Synth-Restore] step %d out of range for a %d step schedule", step,
+                      job->state.num_steps);
+        return false;
+    }
+    memcpy(job->state.xt_state.data(), xt, n_floats * sizeof(float));
+    job->state.resume_step = step;
+    job->next_step         = step;
+    fprintf(stderr, "[Synth-Restore] restored latent at step %d/%d\n", step, job->state.num_steps);
+    return true;
+}
+
+const char * ace_synth_backend_name(AceSynth * ctx) {
+    (void) ctx;
+    // The backend is process-global (see backend.h), so the name does not
+    // depend on which context asks. Reported through a throwaway init that
+    // hits the shared cache rather than creating anything.
+    BackendPair bp = backend_init("Query");
+    if (!bp.ok) {
+        return "unknown";
+    }
+    const char * name = ggml_backend_name(bp.backend);
+    backend_release(bp.backend, bp.cpu_backend);
+    return name;
+}
+
+bool ace_synth_decode_latent(AceSynth *           ctx,
+                             const float *        latent,
+                             int                  T_latent,
+                             std::vector<float> & out,
+                             int *                n_samples_out,
+                             bool (*cancel)(void *),
+                             void * cancel_data) {
+    if (!ctx || !latent || T_latent <= 0) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Synth-Decode] null context or empty latent");
+        return false;
+    }
+    VAEGGML * vae = store_require_vae_dec(ctx->store, ctx->vae_dec_key);
+    if (!vae) {
+        return false;
+    }
+    ModelHandle guard(ctx->store, vae);
+
+    const int T_audio_max = T_latent * 1920;
+    out.assign((size_t) 2 * T_audio_max, 0.0f);
+
+    int T_audio = vae_ggml_decode_tiled(vae, latent, T_latent, out.data(), T_audio_max, ctx->params.vae_chunk,
+                                        ctx->params.vae_overlap, cancel, cancel_data, ctx->progress,
+                                        ctx->progress_data);
+    if (T_audio < 0) {
+        if (cancel && cancel(cancel_data)) {
+            ace_set_error(ACE_ERR_CANCELLED, "[Synth-Decode] cancelled");
+        } else {
+            ace_set_error(ACE_ERR_INTERNAL, "[Synth-Decode] tiled decode failed");
+        }
+        return false;
+    }
+    out.resize((size_t) 2 * T_audio);
+    if (n_samples_out) {
+        *n_samples_out = T_audio;
+    }
+    return true;
 }
 
 void ace_synth_job_free(AceSynthJob * job) {

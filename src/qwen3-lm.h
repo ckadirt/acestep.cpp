@@ -198,17 +198,16 @@ static Qwen3LMConfig qw3lm_load_config(const GGUFModel & gf) {
 }
 
 // Init backend (same pattern as qwen3.h)
-static void qw3lm_init_backend(Qwen3LM * m) {
-    BackendPair bp    = backend_init("LM");
-    m->backend        = bp.backend;
-    m->cpu_backend    = bp.cpu_backend;
-    m->sched          = backend_sched_new(bp, 8192);
-    m->use_flash_attn = bp.has_gpu;
-    m->clamp_fp16     = false;
+[[nodiscard]] static bool qw3lm_init_backend(Qwen3LM * m) {
+    if (!backend_init_sched("LM", 8192, &m->backend, &m->cpu_backend, &m->sched, &m->use_flash_attn)) {
+        return false;
+    }
+    m->clamp_fp16 = false;
+    return true;
 }
 
 // Allocate KV cache
-static void qw3lm_alloc_kv_cache(Qwen3LM * m, int n_sets) {
+[[nodiscard]] static bool qw3lm_alloc_kv_cache(Qwen3LM * m, int n_sets) {
     const Qwen3LMConfig & c   = m->cfg;
     int                   D   = c.head_dim;
     int                   Nkv = c.n_kv_heads;
@@ -248,8 +247,8 @@ static void qw3lm_alloc_kv_cache(Qwen3LM * m, int n_sets) {
 
     m->kv_buf = ggml_backend_alloc_ctx_tensors(m->kv_ctx, m->backend);
     if (!m->kv_buf) {
-        fprintf(stderr, "[LM-KV] FATAL: failed to allocate KV cache\n");
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[LM-KV] failed to allocate KV cache (%d sets x %d layers)", n_sets, L);
+        return false;
     }
 
     // Zero the buffer once: the attention window is padded past kv_pos
@@ -260,6 +259,7 @@ static void qw3lm_alloc_kv_cache(Qwen3LM * m, int n_sets) {
     size_t kv_bytes = (size_t) n_sets * L * 2 * D * S * Nkv * ggml_type_size(GGML_TYPE_F16);
     fprintf(stderr, "[LM-KV] Allocated %d sets x %d layers (4D batched), %.1f MB\n", n_sets, L,
             (float) kv_bytes / (1024 * 1024));
+    return true;
 }
 
 // Clear KV cache for a given set
@@ -283,7 +283,9 @@ static void qw3lm_copy_kv(Qwen3LM * m, int src, int dst) {
 static bool qw3lm_load(Qwen3LM * m, const char * gguf_path, int max_seq_len, int n_kv_sets) {
     *m = {};
 
-    qw3lm_init_backend(m);
+    if (!qw3lm_init_backend(m)) {
+        return false;
+    }
 
     GGUFModel gf;
     if (!gf_load(&gf, gguf_path)) {
@@ -320,7 +322,9 @@ static bool qw3lm_load(Qwen3LM * m, const char * gguf_path, int max_seq_len, int
     gf_close(&gf);
 
     // KV cache
-    qw3lm_alloc_kv_cache(m, n_kv_sets > 0 ? n_kv_sets : 1);
+    if (!qw3lm_alloc_kv_cache(m, n_kv_sets > 0 ? n_kv_sets : 1)) {
+        return false;
+    }
 
     // Persistent graph arenas
     if (!graph_arena_init(&m->arena_prefill, QW3LM_GRAPH_NODES) ||
@@ -477,7 +481,7 @@ static struct ggml_tensor * qw3lm_build_attn(struct ggml_context * ctx,
 
 // Forward pass: token_ids[n_tokens] -> logits[vocab_size] (last token only)
 // kv_set: which KV cache set to use (0=conditional, 1=unconditional for CFG)
-static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int kv_set, float * logits) {
+[[nodiscard]] static bool qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int kv_set, float * logits) {
     if (m->batch_graph.graph.sched_allocated) {
         static_graph_release(&m->batch_graph.graph, m->sched);
         m->batch_graph.built = false;
@@ -489,8 +493,8 @@ static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int 
     int                   kv_len = kv_pos + n_tokens;
 
     if (kv_len > c.max_seq_len) {
-        fprintf(stderr, "[LM-Forward] FATAL: kv_len %d > max_seq %d\n", kv_len, c.max_seq_len);
-        return;
+        ace_set_error(ACE_ERR_INTERNAL, "[LM-Forward] kv_len %d > max_seq %d", kv_len, c.max_seq_len);
+        return false;
     }
 
     // Attention window rounded up to 256 and clamped to the cache size:
@@ -573,8 +577,8 @@ static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int 
     // Schedule + allocate
     ggml_backend_sched_reset(m->sched);
     if (!ggml_backend_sched_alloc_graph(m->sched, gf)) {
-        fprintf(stderr, "[LM] FATAL: failed to allocate graph (prefill, %d tokens)\n", n_tokens);
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[LM] failed to allocate graph (prefill, %d tokens)", n_tokens);
+        return false;
     }
 
     // Set token IDs
@@ -618,6 +622,7 @@ static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int 
     // Advance KV position. The arena and the sched allocation persist
     // into the next forward.
     m->kv_pos[kv_set] += n_tokens;
+    return true;
 }
 
 // Batched decode forward: N tokens (1 per sequence), batched weight matmuls.
@@ -626,7 +631,7 @@ static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int 
 // logits: [N * out_V] output, N logit vectors concatenated.
 // lm_offset/lm_count: when lm_count>0, project only [lm_offset..lm_offset+lm_count)
 //   of vocab (partial LM head). out_V = lm_count. When 0: full vocab, out_V = V.
-static void qw3lm_forward_batch(Qwen3LM *   m,
+[[nodiscard]] static bool qw3lm_forward_batch(Qwen3LM *   m,
                                 const int * token_ids,
                                 const int * kv_sets,
                                 int         N,
@@ -646,8 +651,9 @@ static void qw3lm_forward_batch(Qwen3LM *   m,
             max_kv_len = kl;
         }
         if (kl > c.max_seq_len) {
-            fprintf(stderr, "[LM-Batch] FATAL: kv_len %d > max_seq %d (set %d)\n", kl, c.max_seq_len, kv_sets[i]);
-            exit(1);
+            ace_set_error(ACE_ERR_INTERNAL, "[LM-Batch] kv_len %d > max_seq %d (set %d)", kl, c.max_seq_len,
+                          kv_sets[i]);
+            return false;
         }
     }
 
@@ -829,8 +835,8 @@ static void qw3lm_forward_batch(Qwen3LM *   m,
         ggml_build_forward_expand(gf, lgt);
 
         if (!static_graph_alloc(&m->batch_graph.graph, m->backend, m->sched, gf)) {
-            fprintf(stderr, "[LM] FATAL: failed to allocate graph (batch decode, N=%d)\n", N);
-            exit(1);
+            ace_set_error(ACE_ERR_OOM, "[LM] failed to allocate graph (batch decode, N=%d)", N);
+            return false;
         }
 
         m->batch_graph.gf            = gf;
@@ -891,6 +897,7 @@ static void qw3lm_forward_batch(Qwen3LM *   m,
     for (int i = 0; i < N; i++) {
         m->kv_pos[kv_sets[i]]++;
     }
+    return true;
 }
 
 // Free all resources

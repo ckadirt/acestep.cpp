@@ -318,11 +318,9 @@ static void qwen3_load_layer(WeightCtx *         wctx,
 // gguf_path: path to the .gguf file
 static bool qwen3_load_text_encoder(Qwen3GGML * m, const char * gguf_path) {
     // Backend init
-    BackendPair bp    = backend_init("TextEncoder");
-    m->backend        = bp.backend;
-    m->cpu_backend    = bp.cpu_backend;
-    m->sched          = backend_sched_new(bp, 4096);
-    m->use_flash_attn = bp.has_gpu;
+    if (!backend_init_sched("TextEncoder", 4096, &m->backend, &m->cpu_backend, &m->sched, &m->use_flash_attn)) {
+        return false;
+    }
 
     m->cfg = {
         /*hidden_size*/ 1024,
@@ -370,7 +368,7 @@ static bool qwen3_load_text_encoder(Qwen3GGML * m, const char * gguf_path) {
 // token_ids: [S] int32 (CPU)
 // output:    [H * S] float (CPU, caller-allocated)
 // Returns hidden states in ggml layout: ne[0]=H contiguous, S rows.
-static void qwen3_forward(Qwen3GGML * m, const int * token_ids, int S, float * output) {
+[[nodiscard]] static bool qwen3_forward(Qwen3GGML * m, const int * token_ids, int S, float * output) {
     const Qwen3Config & c = m->cfg;
     int                 H = c.hidden_size;
 
@@ -411,8 +409,9 @@ static void qwen3_forward(Qwen3GGML * m, const int * token_ids, int S, float * o
 
     // Allocate
     if (!ggml_backend_sched_alloc_graph(m->sched, gf)) {
-        fprintf(stderr, "[TextEncoder] FATAL: failed to allocate graph (%d tokens)\n", S);
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[TextEncoder] failed to allocate graph (%d tokens)", S);
+        ggml_free(ctx);
+        return false;
     }
 
     // Set inputs
@@ -445,12 +444,13 @@ static void qwen3_forward(Qwen3GGML * m, const int * token_ids, int S, float * o
 
     ggml_backend_sched_reset(m->sched);
     ggml_free(ctx);
+    return true;
 }
 
 // Embedding lookup via ggml graph (reuses text encoder weights + scheduler)
 // token_ids: [S] int32
 // output:    [H * S] float (ggml layout: H contiguous, S tokens)
-static void qwen3_embed_lookup(Qwen3GGML * m, const int * token_ids, int S, float * output) {
+[[nodiscard]] static bool qwen3_embed_lookup(Qwen3GGML * m, const int * token_ids, int S, float * output) {
     int H = m->cfg.hidden_size;
 
     size_t                  ctx_size = 16 * ggml_tensor_overhead() + ggml_graph_overhead();
@@ -468,8 +468,9 @@ static void qwen3_embed_lookup(Qwen3GGML * m, const int * token_ids, int S, floa
     ggml_build_forward_expand(gf, out);
 
     if (!ggml_backend_sched_alloc_graph(m->sched, gf)) {
-        fprintf(stderr, "[TextEncoder] FATAL: failed to allocate graph (embed lookup, %d tokens)\n", S);
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[TextEncoder] failed to allocate graph (embed lookup, %d tokens)", S);
+        ggml_free(ctx);
+        return false;
     }
     ggml_backend_tensor_set(t_ids, token_ids, 0, S * sizeof(int));
     ggml_backend_sched_graph_compute(m->sched, gf);
@@ -477,6 +478,7 @@ static void qwen3_embed_lookup(Qwen3GGML * m, const int * token_ids, int S, floa
 
     ggml_backend_sched_reset(m->sched);
     ggml_free(ctx);
+    return true;
 }
 
 // Free

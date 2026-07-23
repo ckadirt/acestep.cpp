@@ -477,9 +477,13 @@ int ops_encode_text(const AceSynth * ctx, const AceRequest * reqs, int batch_n, 
             main_fwd[b].S_text  = S_text;
             main_fwd[b].S_lyric = S_lyric;
             main_fwd[b].text_hidden.resize((size_t) H_text * S_text);
-            qwen3_forward(te, text_ids.data(), S_text, main_fwd[b].text_hidden.data());
+            if (!qwen3_forward(te, text_ids.data(), S_text, main_fwd[b].text_hidden.data())) {
+                return -1;
+            }
             main_fwd[b].lyric_embed.resize((size_t) H_text * S_lyric);
-            qwen3_embed_lookup(te, lyric_ids.data(), S_lyric, main_fwd[b].lyric_embed.data());
+            if (!qwen3_embed_lookup(te, lyric_ids.data(), S_lyric, main_fwd[b].lyric_embed.data())) {
+                return -1;
+            }
         }
 
         if (s.need_enc_switch) {
@@ -496,9 +500,13 @@ int ops_encode_text(const AceSynth * ctx, const AceRequest * reqs, int batch_n, 
                 nc_fwd[b].S_text  = S_text;
                 nc_fwd[b].S_lyric = S_lyric;
                 nc_fwd[b].text_hidden.resize((size_t) H_text * S_text);
-                qwen3_forward(te, text_ids.data(), S_text, nc_fwd[b].text_hidden.data());
+                if (!qwen3_forward(te, text_ids.data(), S_text, nc_fwd[b].text_hidden.data())) {
+                    return -1;
+                }
                 nc_fwd[b].lyric_embed.resize((size_t) H_text * S_lyric);
-                qwen3_embed_lookup(te, lyric_ids.data(), S_lyric, nc_fwd[b].lyric_embed.data());
+                if (!qwen3_embed_lookup(te, lyric_ids.data(), S_lyric, nc_fwd[b].lyric_embed.data())) {
+                    return -1;
+                }
             }
         }
 
@@ -535,9 +543,11 @@ int ops_encode_text(const AceSynth * ctx, const AceRequest * reqs, int batch_n, 
 
         for (int b = 0; b < batch_n; b++) {
             s.timer.reset();
-            cond_ggml_forward(ce, main_fwd[b].text_hidden.data(), main_fwd[b].S_text, main_fwd[b].lyric_embed.data(),
-                              main_fwd[b].S_lyric, s.timbre_feats.data(), s.S_ref_timbre, s.per_enc[b],
-                              &s.per_enc_S[b]);
+            if (!cond_ggml_forward(ce, main_fwd[b].text_hidden.data(), main_fwd[b].S_text,
+                                   main_fwd[b].lyric_embed.data(), main_fwd[b].S_lyric, s.timbre_feats.data(),
+                                   s.S_ref_timbre, s.per_enc[b], &s.per_enc_S[b])) {
+                return -1;
+            }
             fprintf(stderr, "[Encode-Text Batch%d] %d+%d tokens -> enc_S=%d, %.1f ms\n", b, main_fwd[b].S_text,
                     main_fwd[b].S_lyric, s.per_enc_S[b], s.timer.ms());
         }
@@ -545,9 +555,11 @@ int ops_encode_text(const AceSynth * ctx, const AceRequest * reqs, int batch_n, 
 
         if (s.need_enc_switch) {
             for (int b = 0; b < batch_n; b++) {
-                cond_ggml_forward(ce, nc_fwd[b].text_hidden.data(), nc_fwd[b].S_text, nc_fwd[b].lyric_embed.data(),
-                                  nc_fwd[b].S_lyric, s.timbre_feats.data(), s.S_ref_timbre, s.per_enc_nc[b],
-                                  &s.per_enc_S_nc[b]);
+                if (!cond_ggml_forward(ce, nc_fwd[b].text_hidden.data(), nc_fwd[b].S_text,
+                                       nc_fwd[b].lyric_embed.data(), nc_fwd[b].S_lyric, s.timbre_feats.data(),
+                                       s.S_ref_timbre, s.per_enc_nc[b], &s.per_enc_S_nc[b])) {
+                    return -1;
+                }
                 fprintf(stderr, "[Encode-Text Batch%d] non-cover: %d+%d tokens -> enc_S=%d\n", b, nc_fwd[b].S_text,
                         nc_fwd[b].S_lyric, s.per_enc_S_nc[b]);
             }
@@ -836,17 +848,34 @@ int ops_dit_generate(const AceSynth * ctx, int batch_n, SynthState & s, bool (*c
         dit->use_flash_attn = false;
     }
 
+    // xt_state carries the flow matching latent across a pause. Sized once;
+    // a resumed call finds it already populated by the run that paused.
+    const size_t n_total = (size_t) batch_n * s.Oc * s.T;
+    if (s.xt_state.size() != n_total) {
+        s.xt_state.assign(n_total, 0.0f);
+    }
+
     s.timer.reset();
-    int dit_rc = dit_ggml_generate(
+    int stop_step = s.num_steps;
+    int dit_rc    = dit_ggml_generate(
         dit, s.noise.data(), s.context.data(), s.enc_hidden.data(), s.enc_S, s.T, batch_n, s.num_steps,
         s.schedule.data(), s.output.data(), s.guidance_scale, &s.dbg,
         s.context_silence.empty() ? nullptr : s.context_silence.data(), s.cover_steps, cancel, cancel_data,
         s.per_enc_S.data(), s.enc_hidden_nc.empty() ? nullptr : s.enc_hidden_nc.data(),
         s.per_enc_S_nc_final.empty() ? nullptr : s.per_enc_S_nc_final.data(), s.seeds.data(), ctx->params.use_batch_cfg,
-        s.rr.dcw_scaler, s.rr.dcw_high_scaler, s.rr.dcw_mode.c_str(), s.rr.solver.c_str(), s.rr.stork_substeps);
-    if (dit_rc != 0) {
+        s.rr.dcw_scaler, s.rr.dcw_high_scaler, s.rr.dcw_mode.c_str(), s.rr.solver.c_str(), s.rr.stork_substeps,
+        s.resume_step, s.xt_state.data(), &stop_step, ctx->progress, ctx->progress_data);
+    if (dit_rc < 0) {
         return -1;
     }
+    if (dit_rc == 1) {
+        // Paused. xt_state and resume_step together with the request are all a
+        // later run needs; nothing else is captured here.
+        s.resume_step = stop_step;
+        fprintf(stderr, "[DiT-Generate] Paused at step %d/%d after %.1f ms\n", stop_step, s.num_steps, s.timer.ms());
+        return 1;
+    }
+    s.resume_step = s.num_steps;
     fprintf(stderr, "[DiT-Generate] Total: %.1f ms (%.1f ms/sample)\n", s.timer.ms(), s.timer.ms() / batch_n);
 
     // Latent post-processing before VAE decode: pred = pred * rescale + shift.
@@ -904,7 +933,8 @@ int ops_vae_decode(const AceSynth * ctx,
 
         s.timer.reset();
         int T_audio = vae_ggml_decode_tiled(vae, dit_out, T_latent, audio.data(), T_audio_max, ctx->params.vae_chunk,
-                                            ctx->params.vae_overlap, cancel, cancel_data);
+                                            ctx->params.vae_overlap, cancel, cancel_data, ctx->progress,
+                                            ctx->progress_data);
         if (T_audio < 0) {
             if (cancel && cancel(cancel_data)) {
                 fprintf(stderr, "[VAE-Decode Batch%d] Cancelled\n", b);

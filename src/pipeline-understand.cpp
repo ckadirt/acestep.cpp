@@ -296,7 +296,9 @@ int ace_understand_generate(AceUnderstand *      ctx,
     Timer              t_gen;
     std::vector<float> logits(V);
     qw3lm_reset_kv(model, 0);
-    qw3lm_forward(model, prompt.data(), (int) prompt.size(), 0, logits.data());
+    if (!qw3lm_forward(model, prompt.data(), (int) prompt.size(), 0, logits.data())) {
+        return -1;
+    }
     fprintf(stderr, "[Understand-Prefill] %.0fms, %zu tokens, seed=%u\n", t_gen.ms(), prompt.size(), seed);
 
     // Step 5: autoregressive decode
@@ -344,7 +346,9 @@ int ace_understand_generate(AceUnderstand *      ctx,
         gen_tokens.push_back(tok);
 
         // Next token forward
-        qw3lm_forward(model, &tok, 1, 0, logits.data());
+        if (!qw3lm_forward(model, &tok, 1, 0, logits.data())) {
+            return -1;
+        }
     }
 
     fprintf(stderr, "[Understand-Decode] %zu tokens, %.0fms (%.1f tok/s)\n", gen_tokens.size(), t_gen.ms(),

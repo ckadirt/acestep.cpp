@@ -10,6 +10,7 @@
 //   ggml_tensor * w = <loader>_load_tensor(&wctx, source, "name");
 //   wctx_alloc(&wctx, backend);
 
+#include "error.h"
 #include "ggml-backend.h"
 #include "ggml.h"
 
@@ -21,6 +22,14 @@
 struct WeightCtx {
     struct ggml_context * ctx;
     ggml_backend_buffer_t buffer;
+
+    // Sticky failure flag. A loader that cannot find or convert a tensor sets
+    // this and returns NULL. Model loaders issue ~100 gf_load_tensor calls in
+    // a row; checking every one at the call site would bury the load code, so
+    // instead they check this once before wctx_alloc, which also refuses to
+    // allocate when it is set. Once true it never clears: the first failure is
+    // the one worth reporting.
+    bool failed;
 
     struct PendingCopy {
         struct ggml_tensor * tensor;
@@ -46,14 +55,24 @@ static void wctx_init(WeightCtx * wctx, int n_tensors) {
     };
     wctx->ctx    = ggml_init(params);
     wctx->buffer = NULL;
+    wctx->failed = false;
     wctx->pending.clear();
     wctx->pending.reserve(n_tensors);
+    if (!wctx->ctx) {
+        ace_set_error(ACE_ERR_OOM, "[WeightCtx] ggml_init failed for %d tensors (%zu bytes)", n_tensors, ctx_size);
+        wctx->failed = true;
+    }
 }
 
 static bool wctx_alloc(WeightCtx * wctx, ggml_backend_t backend) {
+    // A tensor load failed earlier; the error is already recorded. Refuse
+    // rather than allocating a buffer for a model with holes in it.
+    if (wctx->failed) {
+        return false;
+    }
     wctx->buffer = ggml_backend_alloc_ctx_tensors(wctx->ctx, backend);
     if (!wctx->buffer) {
-        fprintf(stderr, "[WeightCtx] FATAL: failed to allocate backend buffer\n");
+        ace_set_error(ACE_ERR_OOM, "[WeightCtx] failed to allocate backend buffer");
         return false;
     }
     // Mark as weight buffer so ggml_backend_sched assigns ops to the correct

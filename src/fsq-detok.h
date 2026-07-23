@@ -69,10 +69,9 @@ struct DetokGGML {
 static bool detok_ggml_load(DetokGGML * m, const char * gguf_path) {
     m->cfg = detok_config();
 
-    BackendPair bp    = backend_init("Detokenizer");
-    m->backend        = bp.backend;
-    m->cpu_backend    = bp.cpu_backend;
-    m->use_flash_attn = bp.has_gpu;
+    if (!backend_init_sched("Detokenizer", 4096, &m->backend, &m->cpu_backend, &m->sched, &m->use_flash_attn)) {
+        return false;
+    }
 
     GGUFModel gf;
     if (!gf_load(&gf, gguf_path)) {
@@ -107,12 +106,7 @@ static bool detok_ggml_load(DetokGGML * m, const char * gguf_path) {
     }
     gf_close(&gf);
 
-    // Scheduler
-    m->sched = backend_sched_new(bp, 4096);
-    if (!m->sched) {
-        fprintf(stderr, "[FSQ] FATAL: failed to create scheduler\n");
-        return false;
-    }
+    // Scheduler was created by backend_init_sched above.
 
     fprintf(stderr, "[Load] Detokenizer: FSQ(6->2048) + 2L encoder(S=5, 2048->64)\n");
     return true;

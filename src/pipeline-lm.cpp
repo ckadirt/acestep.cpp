@@ -5,6 +5,7 @@
 #include "pipeline-lm.h"
 
 #include "bpe.h"
+#include "error.h"
 #include "metadata-fsm.h"
 #include "model-store.h"
 #include "prompt.h"
@@ -23,10 +24,20 @@
 #include <vector>
 
 struct AceLm {
-    ModelStore * store;
-    AceLmParams  params;
-    ModelKey     lm_key;
+    ModelStore *    store;
+    AceLmParams     params;
+    ModelKey        lm_key;
+    AceLmProgressFn progress      = nullptr;
+    void *          progress_data = nullptr;
 };
+
+void ace_lm_set_progress(AceLm * ctx, AceLmProgressFn fn, void * userdata) {
+    if (!ctx) {
+        return;
+    }
+    ctx->progress      = fn;
+    ctx->progress_data = userdata;
+}
 
 // Batched Phase 1: N text generations with shared prompt, different seeds.
 // No CFG. Each element gets its own FSM state and RNG.
@@ -46,9 +57,24 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
                                                       const std::vector<int> * uncond_tokens     = nullptr,
                                                       bool                     stop_at_reasoning = false,
                                                       bool (*cancel)(void *)                     = nullptr,
-                                                      void * cancel_data                         = nullptr) {
+                                                      void * cancel_data                         = nullptr,
+                                                      AceLmCheckpoint * ckpt                     = nullptr,
+                                                      AceLmProgressFn   progress                 = nullptr,
+                                                      void *            progress_data            = nullptr,
+                                                      bool *            paused_out               = nullptr) {
     int  V       = m->cfg.vocab_size;
     bool use_cfg = cfg_scale > 1.0f && uncond_tokens && !uncond_tokens->empty();
+
+    // Resume: fold the saved tokens into the prefill so the KV cache is
+    // rebuilt in one compute-bound pass instead of that many decode steps.
+    // Only N == 1 gets here; ace_lm_generate refuses a batched resume.
+    const bool       resuming = (ckpt && ckpt->phase == 1 && !ckpt->tokens.empty() && N == 1);
+    std::vector<int> prefill_in = prompt_tokens;
+    if (resuming) {
+        prefill_in.insert(prefill_in.end(), ckpt->tokens.begin(), ckpt->tokens.end());
+        fprintf(stderr, "[LM-Phase1] Resuming: %zu prompt + %zu generated tokens re-prefilled\n",
+                prompt_tokens.size(), ckpt->tokens.size());
+    }
 
     // KV sets: cond [0..N-1], uncond [N..2N-1] if CFG
     for (int i = 0; i < N; i++) {
@@ -63,7 +89,9 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
     // Prefill cond once, set 0, copy to 1..N-1
     Timer              t_prefill;
     std::vector<float> prefill_logits(V);
-    qw3lm_forward(m, prompt_tokens.data(), (int) prompt_tokens.size(), 0, prefill_logits.data());
+    if (!qw3lm_forward(m, prefill_in.data(), (int) prefill_in.size(), 0, prefill_logits.data())) {
+        return {};
+    }
     for (int i = 1; i < N; i++) {
         qw3lm_copy_kv(m, 0, i);
     }
@@ -71,7 +99,10 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
     // Prefill uncond once, set N, copy to N+1..2N-1
     std::vector<float> prefill_logits_uncond(V);
     if (use_cfg) {
-        qw3lm_forward(m, uncond_tokens->data(), (int) uncond_tokens->size(), N, prefill_logits_uncond.data());
+        if (!qw3lm_forward(m, uncond_tokens->data(), (int) uncond_tokens->size(), N,
+                           prefill_logits_uncond.data())) {
+            return {};
+        }
         for (int i = 1; i < N; i++) {
             qw3lm_copy_kv(m, N, N + i);
         }
@@ -100,6 +131,22 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
         }
         seqs[i].codes_phase = false;
         seqs[i].done        = false;
+
+        // Replay the saved tokens through the FSM and the phase flag, so the
+        // constrained decoder and the think/codes transition are exactly where
+        // the interrupted run left them. The KV cache was rebuilt by the
+        // prefill above; this rebuilds the CPU-side state that goes with it.
+        if (resuming) {
+            seqs[i].gen_tokens = ckpt->tokens;
+            for (int tk : ckpt->tokens) {
+                if (fsm_template && fsm_template->enabled) {
+                    seqs[i].fsm.update(tk);
+                }
+                if (tk == TOKEN_THINK_END) {
+                    seqs[i].codes_phase = true;
+                }
+            }
+        }
 
         std::vector<float> lg(prefill_logits);
         if (use_cfg) {
@@ -163,8 +210,22 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
 
     for (int step = 0; step < max_new_tokens && n_active > 0; step++) {
         if (cancel && cancel(cancel_data)) {
-            fprintf(stderr, "[LM-Phase1] Cancelled at step %d\n", step);
+            // Pause, not an error: keep the tokens already paid for.
+            if (ckpt && N == 1) {
+                ckpt->phase  = 1;
+                ckpt->tokens = seqs[0].gen_tokens;
+                if (paused_out) {
+                    *paused_out = true;
+                }
+                fprintf(stderr, "[LM-Phase1] Paused at step %d, %zu tokens checkpointed\n", step,
+                        ckpt->tokens.size());
+            } else {
+                fprintf(stderr, "[LM-Phase1] Cancelled at step %d\n", step);
+            }
             return {};
+        }
+        if (progress) {
+            progress((int) (resuming ? ckpt->tokens.size() : 0) + step, max_new_tokens, progress_data);
         }
         for (int i = 0; i < N; i++) {
             tokens[i] = seqs[i].last_token;
@@ -176,11 +237,15 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *                m
                 tokens_2n[i]     = tokens[i];
                 tokens_2n[N + i] = tokens[i];
             }
-            qw3lm_forward_batch(m, tokens_2n.data(), sets_2n.data(), N2, logits_2n.data());
+            if (!qw3lm_forward_batch(m, tokens_2n.data(), sets_2n.data(), N2, logits_2n.data())) {
+                return {};
+            }
             memcpy(logits_cond.data(), logits_2n.data(), (size_t) V * N * sizeof(float));
             memcpy(logits_uncond.data(), logits_2n.data() + (size_t) V * N, (size_t) V * N * sizeof(float));
         } else {
-            qw3lm_forward_batch(m, tokens.data(), cond_sets.data(), N, logits_cond.data());
+            if (!qw3lm_forward_batch(m, tokens.data(), cond_sets.data(), N, logits_cond.data())) {
+                return {};
+            }
         }
 
         for (int i = 0; i < N; i++) {
@@ -274,10 +339,18 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
                                                  const char *                   negative_prompt,
                                                  bool                           use_batch_cfg,
                                                  bool (*cancel)(void *),
-                                                 void * cancel_data) {
+                                                 void *            cancel_data,
+                                                 AceLmCheckpoint * ckpt          = nullptr,
+                                                 AceLmProgressFn   progress      = nullptr,
+                                                 void *            progress_data = nullptr,
+                                                 bool *            paused_out    = nullptr) {
     int  V             = m->cfg.vocab_size;
     bool use_cfg       = cfg_scale > 1.0f;
     bool shared_prompt = ((int) aces.size() == 1);
+
+    // Resume: the saved tokens are audio-code ids relative to AUDIO_CODE_BASE,
+    // so they are lifted back to absolute vocab ids for the prefill.
+    const bool resuming = (ckpt && ckpt->phase == 2 && !ckpt->tokens.empty() && N == 1);
 
     // Build per-element prompts
     std::vector<std::vector<int>> prompts(N), unconds(N);
@@ -289,6 +362,10 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
             fprintf(stderr, "[LM-Phase2] N=%d, CoT[0]:\n%s", N, cot.c_str());
         }
         prompts[i] = build_lm_prompt_with_cot(bpe, a, cot);
+        if (resuming && i == 0) {
+            prompts[i].insert(prompts[i].end(), ckpt->tokens.begin(), ckpt->tokens.end());
+            fprintf(stderr, "[LM-Phase2] Resuming: %zu generated tokens re-prefilled\n", ckpt->tokens.size());
+        }
         if (use_cfg) {
             unconds[i] = build_lm_prompt_uncond_with_cot(bpe, negative_prompt);
         }
@@ -315,14 +392,18 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
     std::vector<std::vector<float>> prefill_logits_vec(N, std::vector<float>(V));
 
     if (shared_prompt) {
-        qw3lm_forward(m, prompts[0].data(), (int) prompts[0].size(), 0, prefill_logits_vec[0].data());
+        if (!qw3lm_forward(m, prompts[0].data(), (int) prompts[0].size(), 0, prefill_logits_vec[0].data())) {
+            return {};
+        }
         for (int i = 1; i < N; i++) {
             qw3lm_copy_kv(m, 0, i);
             prefill_logits_vec[i] = prefill_logits_vec[0];
         }
     } else {
         for (int i = 0; i < N; i++) {
-            qw3lm_forward(m, prompts[i].data(), (int) prompts[i].size(), i, prefill_logits_vec[i].data());
+            if (!qw3lm_forward(m, prompts[i].data(), (int) prompts[i].size(), i, prefill_logits_vec[i].data())) {
+                return {};
+            }
         }
     }
 
@@ -330,15 +411,20 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
     std::vector<std::vector<float>> prefill_logits_uncond_vec(N, std::vector<float>(V));
     if (use_cfg) {
         if (shared_prompt) {
-            qw3lm_forward(m, unconds[0].data(), (int) unconds[0].size(), N, prefill_logits_uncond_vec[0].data());
+            if (!qw3lm_forward(m, unconds[0].data(), (int) unconds[0].size(), N,
+                               prefill_logits_uncond_vec[0].data())) {
+                return {};
+            }
             for (int i = 1; i < N; i++) {
                 qw3lm_copy_kv(m, N, N + i);
                 prefill_logits_uncond_vec[i] = prefill_logits_uncond_vec[0];
             }
         } else {
             for (int i = 0; i < N; i++) {
-                qw3lm_forward(m, unconds[i].data(), (int) unconds[i].size(), N + i,
-                              prefill_logits_uncond_vec[i].data());
+                if (!qw3lm_forward(m, unconds[i].data(), (int) unconds[i].size(), N + i,
+                                   prefill_logits_uncond_vec[i].data())) {
+                    return {};
+                }
             }
         }
     }
@@ -373,6 +459,17 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
         for (int v = 0; v < AUDIO_CODE_BASE; v++) {
             if (v != TOKEN_IM_END) {
                 lg[v] = -1e9f;
+            }
+        }
+
+        // The prefill already consumed the saved tokens; carry the codes they
+        // represent into this sequence so the output is the whole run, not
+        // just the part generated after the resume.
+        if (resuming && i == 0) {
+            for (int tk : ckpt->tokens) {
+                if (tk >= AUDIO_CODE_BASE && tk < AUDIO_CODE_BASE + AUDIO_CODE_COUNT) {
+                    seqs[i].audio_codes.push_back(tk - AUDIO_CODE_BASE);
+                }
             }
         }
 
@@ -426,8 +523,26 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
 
     for (int step = 0; step < max_tokens && n_active > 0; step++) {
         if (cancel && cancel(cancel_data)) {
-            fprintf(stderr, "[LM-Phase2] Cancelled at step %d\n", step);
+            if (ckpt && N == 1) {
+                // Store absolute vocab ids: that is what a prefill consumes.
+                ckpt->phase = 2;
+                ckpt->tokens.clear();
+                ckpt->tokens.reserve(seqs[0].audio_codes.size());
+                for (int code : seqs[0].audio_codes) {
+                    ckpt->tokens.push_back(code + AUDIO_CODE_BASE);
+                }
+                if (paused_out) {
+                    *paused_out = true;
+                }
+                fprintf(stderr, "[LM-Phase2] Paused at step %d, %zu codes checkpointed\n", step,
+                        ckpt->tokens.size());
+            } else {
+                fprintf(stderr, "[LM-Phase2] Cancelled at step %d\n", step);
+            }
             return {};
+        }
+        if (progress) {
+            progress((int) (resuming ? ckpt->tokens.size() : 0) + step, max_tokens, progress_data);
         }
         int current_active = 0;
 
@@ -457,14 +572,20 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *                      
             // Two separate N=1 forwards (cond, then uncond).
             // Workaround for backends where batched multi-sequence attention
             // produces wrong results (e.g. ROCm/gfx1201). Same logit layout.
-            qw3lm_forward_batch(m, batch_tokens.data(), batch_sets.data(), n_active, batch_logits.data(), lm_offset,
-                                lm_count);
-            qw3lm_forward_batch(m, batch_tokens.data() + n_active, batch_sets.data() + n_active, n_active,
-                                batch_logits.data() + (size_t) n_active * out_V, lm_offset, lm_count);
+            if (!qw3lm_forward_batch(m, batch_tokens.data(), batch_sets.data(), n_active, batch_logits.data(),
+                                     lm_offset, lm_count)) {
+                return {};
+            }
+            if (!qw3lm_forward_batch(m, batch_tokens.data() + n_active, batch_sets.data() + n_active, n_active,
+                                     batch_logits.data() + (size_t) n_active * out_V, lm_offset, lm_count)) {
+                return {};
+            }
         } else {
             int actual_batch_size = use_cfg ? (2 * n_active) : n_active;
-            qw3lm_forward_batch(m, batch_tokens.data(), batch_sets.data(), actual_batch_size, batch_logits.data(),
-                                lm_offset, lm_count);
+            if (!qw3lm_forward_batch(m, batch_tokens.data(), batch_sets.data(), actual_batch_size,
+                                     batch_logits.data(), lm_offset, lm_count)) {
+                return {};
+            }
         }
 
         // 3. TARGETED CFG & LOGIT EXTRACTION
@@ -587,11 +708,20 @@ int ace_lm_generate(AceLm *            ctx,
                     const char *       dump_logits,
                     const char *       dump_tokens,
                     bool (*cancel)(void *),
-                    void * cancel_data,
-                    int    mode) {
+                    void *            cancel_data,
+                    int               mode,
+                    AceLmCheckpoint * ckpt) {
     if (!ctx || !req || !out || lm_batch_size < 1) {
         return -1;
     }
+    // A batched resume would need per-sequence token streams and FSM states,
+    // and a partially-finished batch is a different problem than a paused
+    // single run. Refuse rather than silently dropping sequences.
+    if (ckpt && lm_batch_size != 1) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Ace-LM] checkpointing requires lm_batch_size 1, got %d", lm_batch_size);
+        return -1;
+    }
+    bool lm_paused = false;
     if (lm_batch_size > ctx->params.max_batch) {
         fprintf(stderr, "[Ace-LM] ERROR: lm_batch_size %d > max_batch %d\n", lm_batch_size, ctx->params.max_batch);
         return -1;
@@ -762,9 +892,10 @@ int ace_lm_generate(AceLm *            ctx,
 
         auto phase1_texts = generate_phase1_batch(model, bpe, prompt, 2048, temperature, fill_top_p, fill_top_k, seed,
                                                   lm_batch_size, active_fsm, gen_lyrics, fill_cfg,
-                                                  uncond.empty() ? nullptr : &uncond, !gen_lyrics, cancel, cancel_data);
+                                                  uncond.empty() ? nullptr : &uncond, !gen_lyrics, cancel, cancel_data,
+                                                  ckpt, ctx->progress, ctx->progress_data, &lm_paused);
         if (phase1_texts.empty()) {
-            return -1;
+            return lm_paused ? 1 : -1;
         }
 
         // inspire mode: empty base so the LM output overwrites everything.
@@ -815,7 +946,9 @@ int ace_lm_generate(AceLm *            ctx,
         }
         if (dump_logits) {
             std::vector<float> dbg_logits(model->cfg.vocab_size);
-            qw3lm_forward(model, dbg_prompt.data(), (int) dbg_prompt.size(), 0, dbg_logits.data());
+            if (!qw3lm_forward(model, dbg_prompt.data(), (int) dbg_prompt.size(), 0, dbg_logits.data())) {
+                return -1;
+            }
             FILE * f = fopen(dump_logits, "wb");
             if (f) {
                 fwrite(dbg_logits.data(), sizeof(float), model->cfg.vocab_size, f);
@@ -834,9 +967,10 @@ int ace_lm_generate(AceLm *            ctx,
                 mode == LM_MODE_INSPIRE ? "Inspire" : "Format");
     } else if (!user_has_codes) {
         batch_codes = run_phase2_batch(model, *bpe, aces, temperature, top_p, top_k, seed, lm_batch_size, cfg_scale,
-                                       neg_prompt, ctx->params.use_batch_cfg, cancel, cancel_data);
+                                       neg_prompt, ctx->params.use_batch_cfg, cancel, cancel_data, ckpt, ctx->progress,
+                                       ctx->progress_data, &lm_paused);
         if (batch_codes.empty()) {
-            return -1;
+            return lm_paused ? 1 : -1;
         }
     } else {
         fprintf(stderr, "[LM-Generate] User audio_codes present, no code generation\n");

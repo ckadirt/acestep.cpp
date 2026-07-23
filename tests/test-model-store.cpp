@@ -320,6 +320,95 @@ static int scenario_refcount(const char * vae_path) {
 //
 // We simulate the exact propagation block from ace-server main() and compare
 // the two keys by hand. The test must fail loudly when keys drift.
+// Scenario 8: BUDGET policy. The point of this policy is that a small module
+// survives a load that STRICT would have evicted it for. Require the VAE
+// encoder and decoder (small) then the DiT (large) under a budget generous
+// enough for all three, and check nothing was dropped; then repeat under a
+// budget that only fits the DiT and check the LRU victim went first.
+static int scenario_budget(const char * dit_path, const char * vae_path) {
+    fprintf(stderr, "[Test] scenario 8: BUDGET\n");
+
+    // Measure the modules first so the budgets below are derived, not guessed.
+    size_t vae_enc_bytes = 0, vae_dec_bytes = 0, dit_bytes = 0;
+    {
+        ModelStore * m       = store_create(EVICT_NEVER);
+        ModelKey     k_enc   = { MODEL_VAE_ENC, vae_path, 0, 0, "", 1.0f };
+        ModelKey     k_dec   = { MODEL_VAE_DEC, vae_path, 0, 0, "", 1.0f };
+        ModelKey     k_dit   = { MODEL_DIT, dit_path, 0, 0, "", 1.0f };
+        auto *       enc     = store_require_vae_enc(m, k_enc);
+        vae_enc_bytes        = store_vram_bytes(m);
+        auto *       dec     = store_require_vae_dec(m, k_dec);
+        vae_dec_bytes        = store_vram_bytes(m) - vae_enc_bytes;
+        auto *       dit     = store_require_dit(m, k_dit);
+        dit_bytes            = store_vram_bytes(m) - vae_enc_bytes - vae_dec_bytes;
+        if (!enc || !dec || !dit) {
+            fprintf(stderr, "[Test] FAIL: sizing loads failed\n");
+            store_free(m);
+            return 1;
+        }
+        store_release(m, enc);
+        store_release(m, dec);
+        store_release(m, dit);
+        store_free(m);
+    }
+    fprintf(stderr, "[Test] sizes: vae_enc=%.1f MB vae_dec=%.1f MB dit=%.1f MB\n",
+            (float) vae_enc_bytes / (1024.0f * 1024.0f), (float) vae_dec_bytes / (1024.0f * 1024.0f),
+            (float) dit_bytes / (1024.0f * 1024.0f));
+
+    // 8a: budget fits everything -> nothing evicted, all three resident.
+    {
+        size_t       budget = vae_enc_bytes + vae_dec_bytes + dit_bytes + (64ull << 20);
+        ModelStore * s      = store_create(EVICT_BUDGET, budget);
+        ModelKey     k_enc  = { MODEL_VAE_ENC, vae_path, 0, 0, "", 1.0f };
+        ModelKey     k_dec  = { MODEL_VAE_DEC, vae_path, 0, 0, "", 1.0f };
+        ModelKey     k_dit  = { MODEL_DIT, dit_path, 0, 0, "", 1.0f };
+
+        auto * enc = store_require_vae_enc(s, k_enc);
+        store_release(s, enc);
+        auto * dec = store_require_vae_dec(s, k_dec);
+        store_release(s, dec);
+        auto * dit = store_require_dit(s, k_dit);
+        store_release(s, dit);
+        dump(s, "budget fits all three");
+        if (store_gpu_module_count(s) != 3) {
+            fprintf(stderr, "[Test] FAIL: expected 3 resident under a generous budget, got %d\n",
+                    store_gpu_module_count(s));
+            store_free(s);
+            return 1;
+        }
+        fprintf(stderr, "[Test] PASS: BUDGET kept all three; STRICT would have kept one\n");
+        store_free(s);
+    }
+
+    // 8b: budget only fits the DiT -> the two VAE halves are evicted, coldest
+    // first, and the DiT survives.
+    {
+        size_t       budget = dit_bytes + (16ull << 20);
+        ModelStore * s      = store_create(EVICT_BUDGET, budget);
+        ModelKey     k_enc  = { MODEL_VAE_ENC, vae_path, 0, 0, "", 1.0f };
+        ModelKey     k_dec  = { MODEL_VAE_DEC, vae_path, 0, 0, "", 1.0f };
+        ModelKey     k_dit  = { MODEL_DIT, dit_path, 0, 0, "", 1.0f };
+
+        auto * enc = store_require_vae_enc(s, k_enc);  // coldest
+        store_release(s, enc);
+        auto * dec = store_require_vae_dec(s, k_dec);
+        store_release(s, dec);
+        auto * dit = store_require_dit(s, k_dit);
+        store_release(s, dit);
+        dump(s, "budget fits DiT only");
+        if (store_vram_bytes(s) > budget) {
+            fprintf(stderr, "[Test] FAIL: resident %.1f MB exceeds budget %.1f MB\n",
+                    (float) store_vram_bytes(s) / (1024.0f * 1024.0f), (float) budget / (1024.0f * 1024.0f));
+            store_free(s);
+            return 1;
+        }
+        fprintf(stderr, "[Test] PASS: BUDGET evicted LRU down to %.1f MB (budget %.1f MB)\n",
+                (float) store_vram_bytes(s) / (1024.0f * 1024.0f), (float) budget / (1024.0f * 1024.0f));
+        store_free(s);
+    }
+    return 0;
+}
+
 static int scenario_integration(const char * lm_path, const char * dit_path, const char * vae_path) {
     fprintf(stderr, "[Test] scenario 7: ace-server integration\n");
     ModelStore * s = store_create(EVICT_NEVER);
@@ -448,6 +537,7 @@ int main(int argc, char ** argv) {
     rc |= scenario_kind_split(vae_path);
     rc |= scenario_refcount(vae_path);
     rc |= scenario_integration(lm_path, dit_path, vae_path);
+    rc |= scenario_budget(dit_path, vae_path);
 
     if (rc == 0) {
         fprintf(stderr, "[Test] ALL PASS\n");

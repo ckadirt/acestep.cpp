@@ -155,7 +155,19 @@ static int dit_ggml_generate(DiTGGML *           model,
                              float           dcw_high_scaler    = 0.0f,
                              const char *    dcw_mode           = "low",
                              const char *    solver_name        = "euler",
-                             int             stork_substeps     = 10) {
+                             int             stork_substeps     = 10,
+                             // Resume support. start_step > 0 re-enters the flow matching loop
+                             // partway through, seeding xt from xt_io instead of from noise.
+                             // On a clean pause xt_io receives the state entering the step that
+                             // was interrupted, so resuming at that step repeats no work and
+                             // skips none. stop_step_out reports where the loop stopped, equal
+                             // to num_steps on completion.
+                             int             start_step         = 0,
+                             float *         xt_io              = nullptr,
+                             int *           stop_step_out      = nullptr,
+                             // Progress sink, called once per completed step.
+                             void (*progress)(int, int, void *) = nullptr,
+                             void * progress_data               = nullptr) {
     DiTGGMLConfig & c       = model->cfg;
     int             Oc      = c.out_channels;      // 64
     int             ctx_ch  = c.in_channels - Oc;  // 128
@@ -320,8 +332,16 @@ static int dit_ggml_generate(DiTGGML *           model,
                 batch_cfg ? "batched" : "2-pass", N_graph);
     }
 
-    // Prepare host buffers (all N real samples contiguous)
-    std::vector<float> xt(noise, noise + n_total);
+    // Prepare host buffers (all N real samples contiguous).
+    // A fresh run starts from the Philox noise; a resumed run starts from the
+    // latent the previous run was interrupted on.
+    std::vector<float> xt(n_total);
+    if (start_step > 0 && xt_io) {
+        memcpy(xt.data(), xt_io, (size_t) n_total * sizeof(float));
+        fprintf(stderr, "[DiT] Resuming at step %d/%d\n", start_step, num_steps);
+    } else {
+        memcpy(xt.data(), noise, (size_t) n_total * sizeof(float));
+    }
     std::vector<float> vt(n_total);
 
     std::vector<float> vt_cond;
@@ -404,20 +424,60 @@ static int dit_ggml_generate(DiTGGML *           model,
     fprintf(stderr, "[DiT] Solver: %s (%d NFE/step, order %d)\n", solver_info->display_name, solver_info->nfe,
             solver_info->order);
 
+    // Resume is only sound when xt is the whole of the per-step state.
+    //   stateful solvers  carry velocity history in SolverState, which is not
+    //                     serialized, so a resumed run would restart the
+    //                     multistep bootstrap and follow a different path.
+    //   CFG               carries an APG running average across steps, same
+    //                     problem. All shipped catalog tiers use cfg 1.0 so
+    //                     this path is inactive for them.
+    // Refuse rather than silently producing a different track.
+    if (start_step > 0) {
+        if (solver_info->is_stateful) {
+            ace_set_error(ACE_ERR_INTERNAL,
+                          "[DiT] cannot resume a '%s' run: solver keeps velocity history that is not part of the "
+                          "saved state. Use euler or sde for resumable jobs.",
+                          solver_info->name);
+            static_graph_release(&dit_graph, model->sched);
+            ggml_free(ctx);
+            return -1;
+        }
+        if (do_cfg) {
+            ace_set_error(ACE_ERR_INTERNAL,
+                          "[DiT] cannot resume a CFG run (guidance_scale=%.2f): APG momentum is not part of the "
+                          "saved state.",
+                          guidance_scale);
+            static_graph_release(&dit_graph, model->sched);
+            ggml_free(ctx);
+            return -1;
+        }
+    }
+
     SolverState solver_state;
     solver_state.seeds          = seeds;
     solver_state.batch_n        = N;
     solver_state.n_per          = n_per;
     solver_state.stork_substeps = stork_substeps;
 
-    // Flow matching loop
+    // Flow matching loop.
+    // switched_cover starts false even on resume: when start_step is already
+    // past cover_steps the switch fires on the first resumed iteration, which
+    // is what we want, since the swapped context is not part of the saved state.
     bool switched_cover = false;
-    for (int step = 0; step < num_steps; step++) {
+    for (int step = start_step; step < num_steps; step++) {
         if (cancel && cancel(cancel_data)) {
-            fprintf(stderr, "[DiT] Cancelled at step %d/%d\n", step, num_steps);
+            // Clean pause, not an error. xt currently holds the state entering
+            // this step, which is exactly what a resume needs to repeat it.
+            fprintf(stderr, "[DiT] Paused at step %d/%d\n", step, num_steps);
+            if (xt_io) {
+                memcpy(xt_io, xt.data(), (size_t) n_total * sizeof(float));
+            }
+            if (stop_step_out) {
+                *stop_step_out = step;
+            }
             static_graph_release(&dit_graph, model->sched);
             ggml_free(ctx);
-            return -1;
+            return 1;
         }
         float t_curr = schedule[step];
 
@@ -705,6 +765,9 @@ static int dit_ggml_generate(DiTGGML *           model,
         }
 
         fprintf(stderr, "[DiT] Step %d/%d t=%.3f\n", step + 1, num_steps, t_curr);
+        if (progress) {
+            progress(step + 1, num_steps, progress_data);
+        }
     }
 
     // Batch diagnostic: report per-sample stats to catch corruption
@@ -732,6 +795,9 @@ static int dit_ggml_generate(DiTGGML *           model,
         }
     }
 
+    if (stop_step_out) {
+        *stop_step_out = num_steps;
+    }
     static_graph_release(&dit_graph, model->sched);
     ggml_free(ctx);
     return 0;

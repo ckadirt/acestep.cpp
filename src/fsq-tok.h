@@ -64,10 +64,9 @@ static int fsq_encode_index(const float * raw_vals) {
 
 // Load tokenizer weights from DiT GGUF
 static bool tok_ggml_load(TokGGML * m, const char * gguf_path) {
-    BackendPair bp    = backend_init("Tokenizer");
-    m->backend        = bp.backend;
-    m->cpu_backend    = bp.cpu_backend;
-    m->use_flash_attn = bp.has_gpu;
+    if (!backend_init_sched("Tokenizer", 4096, &m->backend, &m->cpu_backend, &m->sched, &m->use_flash_attn)) {
+        return false;
+    }
 
     // Same Qwen3 config as detokenizer (2 layers, H=2048)
     m->cfg.n_layers          = 2;
@@ -110,12 +109,7 @@ static bool tok_ggml_load(TokGGML * m, const char * gguf_path) {
     }
     gf_close(&gf);
 
-    // Scheduler
-    m->sched = backend_sched_new(bp, 4096);
-    if (!m->sched) {
-        fprintf(stderr, "[Tok] FATAL: failed to create scheduler\n");
-        return false;
-    }
+    // Scheduler was created by backend_init_sched above.
 
     fprintf(stderr, "[Tok] Loaded: 2 layers, H=%d, pool_window=5\n", m->cfg.hidden_size);
     return true;

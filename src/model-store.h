@@ -85,6 +85,7 @@ struct ModelKey {
 enum EvictPolicy {
     EVICT_STRICT,  // default: at most one GPU module resident at a time
     EVICT_NEVER,   // --keep-loaded: never evict, accumulate
+    EVICT_BUDGET,  // --vram-budget: evict least-recently-used until under a byte budget
 };
 
 // DiT metadata cached on the CPU: needed by text encoding and T resolution
@@ -96,7 +97,20 @@ struct DiTMeta {
     bool               is_turbo;
 };
 
-ModelStore * store_create(EvictPolicy policy);
+// budget_bytes is only read under EVICT_BUDGET; pass 0 for the other policies.
+//
+// BUDGET sits between the two extremes. STRICT is all-or-nothing: it evicts
+// every other module regardless of size, so on a 6 GB device the 748 MB text
+// encoder is thrown out to load a DiT even though both fit. NEVER keeps
+// everything. BUDGET keeps as much as fits and drops the least recently used
+// first, which is what the catalog's vram_bytes / vram_bytes_resident pair
+// was measured for.
+//
+// Caveat worth knowing: a module's size is only known once it is loaded, so
+// eviction runs against the *current* resident set before the incoming load.
+// Peak can therefore exceed the budget by roughly one module. Size the budget
+// with that headroom, or treat it as a steady-state target rather than a cap.
+ModelStore * store_create(EvictPolicy policy, size_t budget_bytes = 0);
 void         store_free(ModelStore * s);
 
 // Typed GPU module accessors. Each returns a pointer owned by the store;

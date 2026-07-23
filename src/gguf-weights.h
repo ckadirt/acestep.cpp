@@ -163,15 +163,17 @@ static struct ggml_tensor * gf_load_tensor(WeightCtx *         wctx,
                                            int                 n_dims_override = 0) {
     int64_t idx = gguf_find_tensor(gf.gguf, name.c_str());
     if (idx < 0) {
-        fprintf(stderr, "[GGUF] FATAL: tensor '%s' not found\n", name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] tensor '%s' not found", name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
 
     // Get metadata from the context populated by gguf_init_from_file
     struct ggml_tensor * src = ggml_get_tensor(gf.meta, name.c_str());
     if (!src) {
-        fprintf(stderr, "[GGUF] FATAL: tensor '%s' not in meta context\n", name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] tensor '%s' not in meta context", name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
 
     int     n_dims;
@@ -190,6 +192,11 @@ static struct ggml_tensor * gf_load_tensor(WeightCtx *         wctx,
     }
 
     struct ggml_tensor * tensor = ggml_new_tensor(wctx->ctx, src->type, n_dims, ne);
+    if (!tensor) {
+        ace_set_error(ACE_ERR_OOM, "[GGUF] out of context space creating tensor '%s'", name.c_str());
+        wctx->failed = true;
+        return nullptr;
+    }
     ggml_set_name(tensor, name.c_str());
 
     size_t       offset = gguf_get_tensor_offset(gf.gguf, idx);
@@ -214,11 +221,17 @@ static struct ggml_tensor * gf_try_load_tensor(WeightCtx * wctx, const GGUFModel
 static struct ggml_tensor * gf_load_tensor_f32(WeightCtx * wctx, const GGUFModel & gf, const std::string & name) {
     int64_t idx = gguf_find_tensor(gf.gguf, name.c_str());
     if (idx < 0) {
-        fprintf(stderr, "[GGUF] FATAL: tensor '%s' not found\n", name.c_str());
-        exit(1);
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] tensor '%s' not found", name.c_str());
+        wctx->failed = true;
+        return nullptr;
     }
-    struct ggml_tensor * src    = ggml_get_tensor(gf.meta, name.c_str());
-    int                  n_dims = ggml_n_dims(src);
+    struct ggml_tensor * src = ggml_get_tensor(gf.meta, name.c_str());
+    if (!src) {
+        ace_set_error(ACE_ERR_BAD_MODEL, "[GGUF] tensor '%s' not in meta context", name.c_str());
+        wctx->failed = true;
+        return nullptr;
+    }
+    int     n_dims = ggml_n_dims(src);
     int64_t              ne[4]  = { 1, 1, 1, 1 };
     for (int i = 0; i < n_dims; i++) {
         ne[i] = src->ne[i];
@@ -238,6 +251,11 @@ static struct ggml_tensor * gf_load_tensor_f32(WeightCtx * wctx, const GGUFModel
 
     // Create F32 tensor
     struct ggml_tensor * tensor = ggml_new_tensor(wctx->ctx, GGML_TYPE_F32, n_dims, ne);
+    if (!tensor) {
+        ace_set_error(ACE_ERR_OOM, "[GGUF] out of context space creating F32 tensor '%s'", name.c_str());
+        wctx->failed = true;
+        return nullptr;
+    }
     ggml_set_name(tensor, name.c_str());
 
     // Convert data into staging buffer. unique_ptr keeps .get() stable even
@@ -286,13 +304,18 @@ static struct ggml_tensor * gf_load_qkv_fused(WeightCtx *         wctx,
     struct ggml_tensor * q_src = ggml_get_tensor(gf.meta, q_name.c_str());
     struct ggml_tensor * k_src = ggml_get_tensor(gf.meta, k_name.c_str());
     struct ggml_tensor * v_src = ggml_get_tensor(gf.meta, v_name.c_str());
+    // Missing tensor: decline the fusion silently. The caller falls back to
+    // separate gf_load_tensor calls, which report the specific missing name
+    // and set the sticky failure flag. Reporting here too would print a
+    // FATAL for a path that is recoverable when the fusion is merely
+    // unavailable, and would be overwritten by the real error anyway.
     if (!q_src || !k_src || !v_src) {
-        fprintf(stderr, "[GGUF] FATAL: QKV tensor not found: %s / %s / %s\n", q_name.c_str(), k_name.c_str(),
-                v_name.c_str());
-        exit(1);
+        return NULL;
     }
     // All must share ne[0] (input dim) and type - otherwise can't fuse
-    GGML_ASSERT(q_src->ne[0] == k_src->ne[0] && k_src->ne[0] == v_src->ne[0]);
+    if (q_src->ne[0] != k_src->ne[0] || k_src->ne[0] != v_src->ne[0]) {
+        return NULL;  // caller falls back to separate loads
+    }
     if (q_src->type != k_src->type || k_src->type != v_src->type) {
         return NULL;  // caller should fall back to separate loads
     }

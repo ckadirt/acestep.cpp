@@ -35,7 +35,8 @@ static void usage(const char * prog) {
             "  --ref-audio <path>      Timbre reference audio (WAV or MP3)\n\n"
             "Memory control:\n"
             "  --vae-chunk <N>         Latent frames per tile (default: %d)\n"
-            "  --vae-overlap <N>       Overlap frames per side (default: %d)\n\n"
+            "  --vae-overlap <N>       Overlap frames per side (default: %d)\n"
+            "  --threads <N>           CPU threads (default: physical cores)\n\n"
             "Debug:\n"
             "  --no-fa                 Disable flash attention\n"
             "  --no-batch-cfg          Split DiT CFG into two separate forwards\n"
@@ -93,6 +94,10 @@ int main(int argc, char ** argv) {
             vae_chunk = atoi(argv[++i]);
         } else if (!strcmp(argv[i], "--vae-overlap") && i + 1 < argc) {
             vae_overlap = atoi(argv[++i]);
+        } else if (!strcmp(argv[i], "--threads") && i + 1 < argc) {
+            // Must land before any module loads: the shared backend bakes in
+            // its thread count the first time it is created.
+            ace_engine_set_n_threads(atoi(argv[++i]));
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(argv[0]);
             return 0;

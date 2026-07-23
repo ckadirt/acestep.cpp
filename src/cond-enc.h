@@ -85,12 +85,10 @@ struct CondGGML {
 // Tensors have prefix "encoder." for lyric/timbre, and "null_condition_emb"
 static bool cond_ggml_load(CondGGML * m, const char * gguf_path) {
     // Backend init
-    BackendPair bp    = backend_init("CondEncoder");
-    m->backend        = bp.backend;
-    m->cpu_backend    = bp.cpu_backend;
-    m->sched          = backend_sched_new(bp, 8192);
-    m->use_flash_attn = bp.has_gpu;
-    m->clamp_fp16     = false;
+    if (!backend_init_sched("CondEncoder", 8192, &m->backend, &m->cpu_backend, &m->sched, &m->use_flash_attn)) {
+        return false;
+    }
+    m->clamp_fp16 = false;
 
     m->lyric_cfg  = qwen3_lyric_config();
     m->timbre_cfg = qwen3_timbre_config();
@@ -168,7 +166,7 @@ static bool cond_ggml_load(CondGGML * m, const char * gguf_path) {
 //   *out_enc_S:   total sequence length
 //
 // Layout: all arrays in ggml order (ne[0]=dim contiguous, then sequence)
-static void cond_ggml_forward(CondGGML *           m,
+[[nodiscard]] static bool cond_ggml_forward(CondGGML *           m,
                               const float *        text_hidden,
                               int                  S_text,
                               const float *        lyric_embed,
@@ -288,8 +286,9 @@ static void cond_ggml_forward(CondGGML *           m,
 
     // Allocate and set inputs
     if (!ggml_backend_sched_alloc_graph(m->sched, gf)) {
-        fprintf(stderr, "[CondEncoder] FATAL: failed to allocate graph\n");
-        exit(1);
+        ace_set_error(ACE_ERR_OOM, "[CondEncoder] failed to allocate graph");
+        ggml_free(ctx);
+        return false;
     }
 
     ggml_backend_tensor_set(t_lyric_in, lyric_embed, 0, 1024 * S_lyric * sizeof(float));
@@ -377,6 +376,7 @@ static void cond_ggml_forward(CondGGML *           m,
 
     ggml_backend_sched_reset(m->sched);
     ggml_free(ctx);
+    return true;
 }
 
 // Free

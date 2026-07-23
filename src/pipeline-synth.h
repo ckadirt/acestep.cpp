@@ -11,6 +11,7 @@
 #include "request.h"
 
 #include <cstdlib>
+#include <vector>
 
 struct AceSynth;
 struct AceSynthJob;
@@ -36,6 +37,25 @@ struct AceAudio {
     int     n_samples;    // per channel
     int     sample_rate;  // always 48000
 };
+
+// Progress reporting. Called from inside the long loops (DiT steps, VAE
+// tiles) with units completed and total. A diffuse stage runs for minutes on
+// a phone; without this a UI reads as a hang and users cancel work that was
+// about to finish.
+//
+// Set on the context rather than passed per call: the alternative is
+// threading two more parameters through seven task wrappers that do not
+// otherwise care, and the callback is a property of who is watching, not of
+// which task is running.
+typedef void (*AceProgressFn)(int i, int n, void * userdata);
+
+void ace_synth_set_progress(AceSynth * ctx, AceProgressFn fn, void * userdata);
+
+// Set the CPU thread count before any module loads. 0 keeps the built-in
+// heuristic, which is wrong on big.LITTLE (see backend.h). Must be called
+// before the first module is acquired: an already-created backend keeps the
+// count it was made with.
+void ace_engine_set_n_threads(int n);
 
 void ace_synth_default_params(AceSynthParams * p);
 
@@ -80,7 +100,33 @@ AceSynthJob * ace_synth_job_run_dit(AceSynth *         ctx,
 // job and valid until ace_synth_job_free. Layout is flat [T_latent * 64] f32
 // time-major, identical to the /vae wire format: feeding it to /vae decode
 // reproduces the track's output audio. *T_out is set to T_latent.
+// Only meaningful once phase 1 has completed: a paused job has no output yet.
 const float * ace_synth_job_get_latent(const AceSynthJob * job, int track_idx, int * T_out);
+
+// Pause and resume.
+//
+// ace_synth_job_run_dit returns a job in one of two states. A completed job
+// carries the denoised latents and is ready for phase 2. A paused job stopped
+// on the cancel callback partway through the flow matching schedule and is
+// NOT ready for phase 2; it holds the state needed to continue instead.
+//
+// A paused job keeps its whole SynthState, so resuming in the same process
+// costs nothing but re-acquiring the DiT: no re-encoding, no serialization.
+// Resume is refused for stateful solvers (dpm3m, stork4) and for CFG runs,
+// where the per-step state is more than the latent and would silently produce
+// a different track.
+bool ace_synth_job_is_paused(const AceSynthJob * job);
+
+// Progress: returns the next step to run, and writes the schedule length to
+// num_steps_out when non-NULL. On a completed job these are equal.
+int ace_synth_job_progress(const AceSynthJob * job, int * num_steps_out);
+
+// Continue a paused job from where it stopped.
+// Returns 0 when the schedule completes, 1 if paused again, -1 on error.
+int ace_synth_job_resume_dit(AceSynth *    ctx,
+                             AceSynthJob * job,
+                             bool (*cancel)(void *) = nullptr,
+                             void * cancel_data     = nullptr);
 
 // Phase 2: latent splice (for repaint/lego) + VAE decode. Acquires the VAE
 // decoder from the store; in STRICT this evicts the DiT from phase 1
@@ -93,6 +139,42 @@ int ace_synth_job_run_vae(AceSynth *    ctx,
                           AceAudio *    out,
                           bool (*cancel)(void *) = nullptr,
                           void * cancel_data     = nullptr);
+
+// --- support for serialized (cross-restart) resume ---
+//
+// In-process resume needs none of this: the job holds everything. These exist
+// so a caller can persist a paused job and rebuild it in a later process.
+
+// A cancel callback that always fires. Passing this to ace_synth_job_run_dit
+// runs phase 1 up to and including the conditioning, then pauses entering
+// step 0 - which is exactly the state a restored job needs before its saved
+// latent is written into it.
+bool ace_synth_abort_immediately(void * unused);
+
+// The paused latent, laid out [batch_n, T, Oc]. NULL when the job is not
+// paused. Owned by the job.
+const float * ace_synth_job_get_xt(const AceSynthJob * job, int * batch_n_out, int * T_out, int * Oc_out);
+
+// Overwrite a paused job's latent and step with saved ones. n_floats must
+// match the job's own layout, which is what catches a blob built for a
+// different duration or batch size. Returns false and records an error
+// otherwise.
+bool ace_synth_job_restore(AceSynthJob * job, int step, const float * xt, size_t n_floats);
+
+// ggml backend name the synth context will compute on, e.g. "CPU", "CUDA0".
+// Stamped into a paused blob so a resume elsewhere can be refused.
+const char * ace_synth_backend_name(AceSynth * ctx);
+
+// Decode a latent [T, 64] straight to planar stereo 48kHz, without a job.
+// This is the DECODE stage: the one place audio comes out of a latent that
+// did not just come out of the DiT. Returns false on error or cancel.
+bool ace_synth_decode_latent(AceSynth *           ctx,
+                             const float *        latent,
+                             int                  T_latent,
+                             std::vector<float> & out,
+                             int *                n_samples_out,
+                             bool (*cancel)(void *) = nullptr,
+                             void * cancel_data     = nullptr);
 
 void ace_synth_job_free(AceSynthJob * job);
 
