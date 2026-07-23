@@ -69,10 +69,15 @@ jobs:
         with:
           submodules: recursive
 
+      # Do NOT apt-install cmake. Ubuntu 22.04 ships 3.22, which would
+      # DOWNGRADE the runner's preinstalled version - and the 120a/121a
+      # Blackwell architecture suffixes need CMake >= 3.30. That downgrade is
+      # what failed the first CUDA run.
       - name: Build tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq cmake build-essential pkg-config
+          sudo apt-get install -y -qq build-essential pkg-config
+          echo "cmake: $(cmake --version | head -1)"
           if [ "${{ matrix.backend }}" = "cpu" ] && [ "${{ matrix.arch }}" = "x86_64" ]; then
             sudo apt-get install -y -qq libopenblas-dev
           fi
@@ -106,6 +111,18 @@ jobs:
                   -DGGML_BACKEND_DL=ON
                   -DGGML_OPENMP=OFF"
 
+          # Blackwell 120a/121a need CMake >= 3.30; fall back rather than fail.
+          CUDA_FLAGS=""
+          if [ "${{ matrix.backend }}" = "cuda12" ]; then
+            CMV=$(cmake --version | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+            if [ "$(printf '%s\n3.30\n' "$CMV" | sort -V | head -1)" = "3.30" ]; then
+              CUDA_FLAGS="-DCMAKE_CUDA_ARCHITECTURES=${{ env.CUDA_ARCHS }}"
+            else
+              echo "cmake $CMV < 3.30: dropping Blackwell 120a/121a targets"
+              CUDA_FLAGS="-DCMAKE_CUDA_ARCHITECTURES=75-virtual;80-virtual;86-real;89-real;90-real"
+            fi
+          fi
+
           if [ "${{ matrix.android }}" = "true" ]; then
             NDK="$ANDROID_NDK_LATEST_HOME"
             echo "NDK: $NDK"
@@ -114,8 +131,12 @@ jobs:
               -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-33 \
               2>&1 | tee configure.log
           else
-            cmake -B build $COMMON ${{ matrix.extra }} \
-              ${{ matrix.backend == 'cuda12' && format('-DCMAKE_CUDA_ARCHITECTURES="{0}"', env.CUDA_ARCHS) || '' }} \
+            # ${VAR:+"$VAR"} expands to nothing when empty and to the quoted
+            # value when set. A bare "$CUDA_FLAGS" would pass an empty argument
+            # to cmake on the cpu and vulkan cells and break them; unquoted,
+            # the semicolons in the arch list would be read as shell command
+            # separators. This form is the only one that is right for both.
+            cmake -B build $COMMON ${{ matrix.extra }} ${CUDA_FLAGS:+"$CUDA_FLAGS"} \
               2>&1 | tee configure.log
           fi
 
