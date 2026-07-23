@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "engines": [
+    {
+      "name": "acestep",
+      "abi": 1,
+      "backends": [
+        {
+          "backend": "cpu",
+          "arch": "x86_64",
+          "url": "https://cantor-ckpts.ckadirt.xyz/backends/7ebde9b25cc0/acestep-engine-cpu-x86_64.tar.gz",
+          "sha256": "009408e6b660f2d217cf1765e16773ca8caeb3184602dff3d02c21f82620e34b",
+          "bytes": 8085935
+        },
+        {
+          "backend": "cuda12",
+          "arch": "x86_64",
+          "url": "https://cantor-ckpts.ckadirt.xyz/backends/7ebde9b25cc0/acestep-engine-cuda12-x86_64.tar.gz",
+          "sha256": "0b5d57d01e56666a650e55fbb3c4092ec238d2a4e8789549dbfdb2e337a71565",
+          "bytes": 117944449
+        },
+        {
+          "backend": "vulkan",
+          "arch": "x86_64",
+          "url": "https://cantor-ckpts.ckadirt.xyz/backends/7ebde9b25cc0/acestep-engine-vulkan-x86_64.tar.gz",
+          "sha256": "e1777b4a1bcba8c039230d0393db2d6356d484ba18caf26f2a3a6bc70320ab08",
+          "bytes": 23990884
+        },
+        {
+          "backend": "cpu",
+          "arch": "arm64",
+          "url": "https://cantor-ckpts.ckadirt.xyz/backends/7ebde9b25cc0/acestep-engine-cpu-arm64.tar.gz",
+          "sha256": "c323bef56930074ec28dd1f4f87212507f4dcdc41e95af22535e19756974d071",
+          "bytes": 13795327
+        }
+      ]
+    }
+  ]
+}
