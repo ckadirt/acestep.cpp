@@ -43,8 +43,14 @@ endif()
 # Users can override with -DCMAKE_CUDA_ARCHITECTURES=native for local builds.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     find_package(CUDAToolkit QUIET)
-    if(CUDAToolkit_FOUND AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+    # sm_120 (consumer Blackwell) arrived in CUDA 12.8; sm_121 arrived in 12.9.
+    # Gating both behind 12.8 makes a stock -DGGML_CUDA=ON build fail on a 12.8
+    # toolkit with "nvcc fatal: Unsupported gpu architecture 'compute_121a'",
+    # and the only escape is overriding CMAKE_CUDA_ARCHITECTURES by hand.
+    if(CUDAToolkit_FOUND AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.9")
         set(CMAKE_CUDA_ARCHITECTURES "75-virtual;80-virtual;86-real;89-real;120a-real;121a-real")
+    elseif(CUDAToolkit_FOUND AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+        set(CMAKE_CUDA_ARCHITECTURES "75-virtual;80-virtual;86-real;89-real;120a-real")
     else()
         set(CMAKE_CUDA_ARCHITECTURES "75-virtual;80-virtual;86-real;89-real")
     endif()
