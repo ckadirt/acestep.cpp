@@ -14,3 +14,7 @@ tools/webui/dist/
 
 # local test scratch (Parts 5-8 engine work)
 testrun/
+
+# never commit credentials
+.env
+*.env

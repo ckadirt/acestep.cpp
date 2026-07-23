@@ -1,0 +1,267 @@
+# engine-release.yml — build the engine and publish to Cloudflare R2.
+#
+# Four artifacts in v1: three x86_64 backends and Android arm64. Each tarball
+# is self-contained and carries the CPU variants, because CPU is a mandatory
+# fallback: backend_init hard-fails without one, so a "cuda" tarball with only
+# libggml-cuda.so would not run.
+#
+# Objects are addressed by commit SHA and NEVER overwritten. A digest recorded
+# by a node must keep resolving to the same bytes - the same discipline the
+# checkpoint bucket uses. There is deliberately no --clobber here.
+#
+# Secrets required on the repository:
+#   R2_ENDPOINT_URL  R2_ACCESS_KEY_ID  R2_SECRET_ACCESS_KEY  R2_BUCKET
+
+name: engine-release
+
+on:
+  push:
+    branches: [master, engine-stages]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'tools/**'
+      - 'ggml'
+      - 'CMakeLists.txt'
+      - '.github/workflows/engine-release.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Upload to R2 (off = build and check only)'
+        type: boolean
+        default: true
+
+concurrency:
+  group: engine-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Blackwell targets (120a/121a) need CUDA >= 12.8; 90-real covers Hopper.
+  CUDA_ARCHS: "75-virtual;80-virtual;86-real;89-real;90-real;120a-real;121a-real"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64-cpu
+            backend: cpu
+            arch: x86_64
+            extra: -DGGML_BLAS=ON
+          - name: linux-x86_64-cuda12
+            backend: cuda12
+            arch: x86_64
+            extra: -DGGML_CUDA=ON
+          - name: linux-x86_64-vulkan
+            backend: vulkan
+            arch: x86_64
+            extra: -DGGML_VULKAN=ON
+          - name: android-arm64-cpu
+            backend: cpu
+            arch: arm64
+            android: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake build-essential pkg-config
+          if [ "${{ matrix.backend }}" = "cpu" ] && [ "${{ matrix.arch }}" = "x86_64" ]; then
+            sudo apt-get install -y -qq libopenblas-dev
+          fi
+
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: engine-${{ matrix.name }}
+
+      # CUDA >= 12.8 is required for the Blackwell architectures in CUDA_ARCHS.
+      - name: CUDA toolkit
+        if: matrix.backend == 'cuda12'
+        uses: Jimver/cuda-toolkit@v0.2.30
+        with:
+          cuda: '12.8.0'
+          method: network
+
+      # Provides glslc and SPIRV-Headers. The NDK does not ship vulkan.hpp
+      # either, which is why the Android+Vulkan combination is not in v1.
+      - name: Vulkan SDK
+        if: matrix.backend == 'vulkan'
+        uses: humbletim/install-vulkan-sdk@v1.2
+        with:
+          version: 1.4.309.0
+          cache: true
+
+      - name: Configure
+        run: |
+          set -euo pipefail
+          COMMON="-DCMAKE_BUILD_TYPE=Release
+                  -DGGML_CPU_ALL_VARIANTS=ON
+                  -DGGML_BACKEND_DL=ON
+                  -DGGML_OPENMP=OFF"
+
+          if [ "${{ matrix.android }}" = "true" ]; then
+            NDK="$ANDROID_NDK_LATEST_HOME"
+            echo "NDK: $NDK"
+            cmake -B build $COMMON \
+              -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-33 \
+              2>&1 | tee configure.log
+          else
+            cmake -B build $COMMON ${{ matrix.extra }} \
+              ${{ matrix.backend == 'cuda12' && format('-DCMAKE_CUDA_ARCHITECTURES="{0}"', env.CUDA_ARCHS) || '' }} \
+              2>&1 | tee configure.log
+          fi
+
+      # An empty variant list means the generic baseline got built - on ARM
+      # that measured ~34% slower than the correct flags, silently. Cheap to
+      # assert, and the failure it prevents is invisible at runtime.
+      - name: Assert CPU variants were selected
+        run: |
+          set -euo pipefail
+          echo "--- variants ---"
+          grep "Adding CPU backend variant" configure.log || true
+          COUNT=$(grep -c "Adding CPU backend variant" configure.log || echo 0)
+          if [ "$COUNT" -lt 2 ]; then
+            echo "FAIL: expected several CPU variants, found $COUNT."
+            echo "      GGML_CPU_ALL_VARIANTS did not take effect."
+            exit 1
+          fi
+          if grep -qE "Adding CPU backend variant ggml-cpu: *$" configure.log; then
+            echo "FAIL: a variant was added with no -march flags (generic baseline)."
+            exit 1
+          fi
+
+      - name: Build
+        run: cmake --build build --config Release -j "$(nproc)"
+
+      - name: Guard against fatal exits
+        run: ./tools/check-no-fatal.sh
+
+      # CPU-only x86 is the one cell that can actually run its own output.
+      - name: Smoke test
+        if: matrix.name == 'linux-x86_64-cpu'
+        run: |
+          ./build/ace-synth 2>&1 | head -3 || true
+          test -f build/libcantor_engine.so
+          echo "--- exported symbols ---"
+          nm -D --defined-only build/libcantor_engine.so | awk '{print $3}' \
+            | grep -c '^cantor_engine_' | grep -qx 13 \
+            || { echo "FAIL: expected exactly 13 exported cantor_engine_* symbols"; exit 1; }
+
+      - name: Package
+        id: pkg
+        run: |
+          set -euo pipefail
+          NAME="acestep-engine-${{ matrix.backend }}-${{ matrix.arch }}"
+          mkdir -p dist/$NAME
+
+          # The engine ABI plus every ggml library. CPU variants are included
+          # in every tarball on purpose: they are the mandatory fallback.
+          cp build/libcantor_engine.so dist/$NAME/
+          cp build/libggml.so build/libggml-base.so dist/$NAME/
+          cp build/libggml-cpu*.so dist/$NAME/
+          for gpu in cuda vulkan blas; do
+            [ -f "build/libggml-$gpu.so" ] && cp "build/libggml-$gpu.so" dist/$NAME/ || true
+          done
+          # CLI tools, only where they are runnable on the target.
+          if [ "${{ matrix.android }}" != "true" ]; then
+            cp build/ace-synth build/ace-lm build/ace-server dist/$NAME/ 2>/dev/null || true
+          fi
+
+          tar -C dist -czf "$NAME.tar.gz" "$NAME"
+          SHA=$(sha256sum "$NAME.tar.gz" | cut -d' ' -f1)
+          BYTES=$(stat -c%s "$NAME.tar.gz")
+          echo "name=$NAME"   >> $GITHUB_OUTPUT
+          echo "sha=$SHA"     >> $GITHUB_OUTPUT
+          echo "bytes=$BYTES" >> $GITHUB_OUTPUT
+          echo "$NAME.tar.gz  $BYTES bytes  sha256:$SHA"
+          ls -la dist/$NAME/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.name }}
+          path: ${{ steps.pkg.outputs.name }}.tar.gz
+          retention-days: 14
+
+      - name: Upload to R2
+        if: github.event_name == 'push' || inputs.publish
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # botocore >= 1.36 adds CRC32 checksums that R2 rejects on multipart.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          ENDPOINT: ${{ secrets.R2_ENDPOINT_URL }}
+          BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          NAME="${{ steps.pkg.outputs.name }}"
+          KEY="backends/${GITHUB_SHA::12}/$NAME.tar.gz"
+
+          # Immutability: refuse rather than overwrite. A digest a node has
+          # already recorded must keep resolving to the same bytes.
+          if aws s3api head-object --endpoint-url "$ENDPOINT" \
+               --bucket "$BUCKET" --key "$KEY" >/dev/null 2>&1; then
+            echo "Object already exists at $KEY - refusing to overwrite."
+            exit 0
+          fi
+
+          aws s3 cp "$NAME.tar.gz" "s3://$BUCKET/$KEY" \
+            --endpoint-url "$ENDPOINT" \
+            --cache-control "public, max-age=31536000, immutable" \
+            --content-type application/gzip
+          echo "uploaded s3://$BUCKET/$KEY"
+
+      - name: Manifest fragment
+        run: |
+          cat > "${{ steps.pkg.outputs.name }}.json" <<EOF
+          {
+            "backend": "${{ matrix.backend }}",
+            "arch": "${{ matrix.arch }}",
+            "url": "https://REPLACE-WITH-PUBLIC-HOST/backends/${GITHUB_SHA::12}/${{ steps.pkg.outputs.name }}.tar.gz",
+            "sha256": "${{ steps.pkg.outputs.sha }}",
+            "bytes": ${{ steps.pkg.outputs.bytes }}
+          }
+          EOF
+          cat "${{ steps.pkg.outputs.name }}.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manifest-${{ steps.pkg.outputs.name }}
+          path: ${{ steps.pkg.outputs.name }}.json
+          retention-days: 14
+
+  # Collects the per-job fragments into one backends/v1.json shaped like the
+  # schema in Part 4. Not uploaded automatically: review it, then publish.
+  manifest:
+    needs: build
+    runs-on: ubuntu-22.04
+    if: always()
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: manifest-*
+          merge-multiple: true
+          path: frags
+      - name: Assemble
+        run: |
+          set -euo pipefail
+          echo '{ "schema": 1, "engines": [ { "name": "acestep", "abi": 1, "backends": [' > v1.json
+          find frags -name '*.json' | sort | paste -sd, - | xargs cat \
+            | python3 -c "import sys,json;print(',\n'.join(json.dumps(json.loads(l),indent=2) for l in sys.stdin.read().split('}\n{') if l.strip()))" \
+            2>/dev/null || cat frags/*.json | paste -sd, -
+          echo '] } ] }' >> v1.json
+          echo "--- fragments ---"; cat frags/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backends-v1-manifest
+          path: frags/
+          retention-days: 14
