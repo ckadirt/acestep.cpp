@@ -33,6 +33,17 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 # DiT tensor names can exceed default GGML_MAX_NAME of 64
 add_compile_definitions(GGML_MAX_NAME=128)
 
+# This project is packaged straight from the build root, so the build-tree
+# RPATH is what ships. Without this the CI runner's absolute path leaks into
+# RUNPATH and the engine cannot find the ggml sitting right beside it, leaving
+# it to bind against whatever another engine already loaded.
+set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
+if(APPLE)
+    set(CMAKE_INSTALL_RPATH "@loader_path")
+else()
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
+
 # Harden: mark fread/fwrite/etc with warn_unused_result on all platforms
 # SYCL excluded: _FORTIFY_SOURCE swaps memcpy for __memcpy_chk, unresolved in device code
 if(NOT MSVC AND NOT GGML_SYCL)
@@ -63,6 +74,15 @@ if(NOT DEFINED GGML_CUDA_GRAPHS)
     set(GGML_CUDA_GRAPHS_DEFAULT ON)
 endif()
 add_subdirectory(ggml)
+
+# A node process loads every engine family and unloads none. Identical ggml
+# SONAMEs let whichever family loads first satisfy every later family's
+# DT_NEEDED, so this build's GGML_MAX_NAME=128 would silently be replaced by
+# another family's 64 and the DiT would stop loading. Give this family's ggml a
+# name no other family can answer to. The backend scanner globs
+# libggml-<backend>-*.so, so these stay clear of anything it probes for.
+set_target_properties(ggml-base PROPERTIES OUTPUT_NAME ggml-base-acestep)
+set_target_properties(ggml      PROPERTIES OUTPUT_NAME ggml-acestep)
 
 # cpp-httplib (HTTP server library, used by ace-server)
 add_subdirectory(vendor/cpp-httplib)
