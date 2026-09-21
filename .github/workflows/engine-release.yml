@@ -203,7 +203,19 @@ jobs:
           # The engine ABI plus every ggml library. CPU variants are included
           # in every tarball on purpose: they are the mandatory fallback.
           cp build/libcantor_engine.so dist/$NAME/
-          cp build/libggml.so build/libggml-base.so dist/$NAME/
+          # Named rather than globbed: this build puts the backend plugins in
+          # the same directory, so build/libggml*.so would sweep libggml-cuda.so
+          # into a CPU archive. The names come from the SONAME rename in
+          # CMakeLists, which stops another family's ggml from answering for
+          # this one in a shared node process.
+          #
+          # cp -a, and the trailing glob, so the SONAME-versioned files and
+          # their symlinks all ship. Copying only the bare .so left the tarball
+          # without the libggml-base-*.so.0 that every DT_NEEDED asks for, so
+          # the engine could not resolve its own ggml even beside it.
+          core_libs=(build/libggml-acestep.so* build/libggml-base-acestep.so*)
+          test "${#core_libs[@]}" -ge 2
+          cp -a "${core_libs[@]}" dist/$NAME/
           cp build/libggml-cpu*.so dist/$NAME/
           for gpu in cuda vulkan blas; do
             [ -f "build/libggml-$gpu.so" ] && cp "build/libggml-$gpu.so" dist/$NAME/ || true
