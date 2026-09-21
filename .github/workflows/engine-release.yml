@@ -326,6 +326,8 @@ jobs:
               json.dumps(output, indent=2) + "\n", encoding="utf-8"
           )
           PY
+          echo '--- paste into relay/public/backends/v1.json ---'
+          cat acestep-backends-v1.fragment.json
 
       - name: Show the fragment on the run page
         shell: bash
