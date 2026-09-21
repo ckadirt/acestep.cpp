@@ -272,15 +272,23 @@ jobs:
 
       - name: Manifest fragment
         run: |
-          cat > "${{ steps.pkg.outputs.name }}.json" <<EOF
-          {
-            "backend": "${{ matrix.backend }}",
-            "arch": "${{ matrix.arch }}",
-            "url": "https://REPLACE-WITH-PUBLIC-HOST/backends/${GITHUB_SHA::12}/${{ steps.pkg.outputs.name }}.tar.gz",
-            "sha256": "${{ steps.pkg.outputs.sha }}",
-            "bytes": ${{ steps.pkg.outputs.bytes }}
-          }
-          EOF
+          set -euo pipefail
+          python3 - '${{ matrix.backend }}' '${{ matrix.arch }}' '${{ steps.pkg.outputs.name }}' '${{ steps.pkg.outputs.sha }}' '${{ steps.pkg.outputs.bytes }}' "$GITHUB_SHA" <<'PY' > '${{ steps.pkg.outputs.name }}.json'
+          import json
+          import sys
+
+          backend, arch, name, sha256, byte_count, commit = sys.argv[1:]
+          # The public host in front of the R2 bucket, matching the key the
+          # upload step writes. It was a REPLACE-WITH-PUBLIC-HOST placeholder,
+          # so the fragment could never be pasted anywhere without editing.
+          print(json.dumps({
+              "backend": backend,
+              "arch": arch,
+              "url": f"https://cantor-ckpts.ckadirt.xyz/backends/{commit[:12]}/{name}.tar.gz",
+              "sha256": sha256,
+              "bytes": int(byte_count),
+          }, indent=2))
+          PY
           cat "${{ steps.pkg.outputs.name }}.json"
 
       - uses: actions/upload-artifact@v4
@@ -301,17 +309,41 @@ jobs:
           pattern: manifest-*
           merge-multiple: true
           path: frags
-      - name: Assemble
+      - name: Assemble paste-ready Cantor fragment
+        shell: bash
         run: |
           set -euo pipefail
-          echo '{ "schema": 1, "engines": [ { "name": "acestep", "abi": 1, "backends": [' > v1.json
-          find frags -name '*.json' | sort | paste -sd, - | xargs cat \
-            | python3 -c "import sys,json;print(',\n'.join(json.dumps(json.loads(l),indent=2) for l in sys.stdin.read().split('}\n{') if l.strip()))" \
-            2>/dev/null || cat frags/*.json | paste -sd, -
-          echo '] } ] }' >> v1.json
-          echo "--- fragments ---"; cat frags/*.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          fragments = sorted(Path("frags").glob("*.json"))
+          if len(fragments) != 4:
+              raise SystemExit(f"expected four backend fragments, found {len(fragments)}")
+          backends = [json.loads(path.read_text(encoding="utf-8")) for path in fragments]
+          output = {"name": "acestep", "abi": 1, "backends": backends}
+          Path("acestep-backends-v1.fragment.json").write_text(
+              json.dumps(output, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+
+      - name: Show the fragment on the run page
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '## Cantor backends fragment'
+            echo
+            echo 'Paste into `relay/public/backends/v1.json`, replacing this engine'"'"'s entry.'
+            echo
+            echo '```json'
+            cat acestep-backends-v1.fragment.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         with:
-          name: backends-v1-manifest
-          path: frags/
+          name: acestep-backends-v1-fragment
+          path: acestep-backends-v1.fragment.json
+          if-no-files-found: error
           retention-days: 14
