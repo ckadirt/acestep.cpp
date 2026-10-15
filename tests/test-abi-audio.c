@@ -10,6 +10,10 @@
  *     read, fails by the field's name
  *   - a cover paused, torn down and resumed matches the uninterrupted run,
  *     because the paths come back with the request
+ *   - ENCODE turns a request's audio into latents once (a kept voice is the
+ *     source, not a second encode), counts its tiles, and DIFFUSE from those
+ *     latents gives the same cover, pauses without dropping them, and resumes
+ *     to the same bytes; an extend from them still keeps the source's frames
  *
  * The source is made here: a short text2music render through the same ABI,
  * written as a 16-bit WAV. Usage: ./test-abi-audio --models <dir> [--tmp <dir>]
@@ -97,6 +101,50 @@ static int write_wav(const char * path, const float * planar, int n, int rate) {
     }
     fclose(f);
     return 1;
+}
+
+struct counted {
+    int calls;
+    int stage_ok;
+    int last_i;
+    int last_n;
+};
+
+static void count_progress(cantor_stage stage, int i, int n, void * ud) {
+    struct counted * c = (struct counted *) ud;
+    c->calls++;
+    c->stage_ok = c->calls == 1 ? stage == CANTOR_STAGE_ENCODE : c->stage_ok && stage == CANTOR_STAGE_ENCODE;
+    c->last_i   = i;
+    c->last_n   = n;
+}
+
+static uint32_t u32_at(const uint8_t * p, size_t off) {
+    uint32_t v;
+    memcpy(&v, p + off, 4);
+    return v;
+}
+
+/* run ENCODE; returns the encoded blob (caller frees) */
+static uint8_t * encode(cantor_ctx * ctx, const char * json, size_t * len, struct counted * c) {
+    uint8_t *     out = NULL;
+    cantor_status st  = cantor_engine_run_stage(ctx, CANTOR_STAGE_ENCODE, (const uint8_t *) json, strlen(json), &out,
+                                                len, c ? count_progress : NULL, NULL, c);
+    if (st != CANTOR_DONE) {
+        cantor_engine_free_blob(out);
+        return NULL;
+    }
+    return out;
+}
+
+/* run DIFFUSE on a blob to completion; returns the latent blob (caller frees) */
+static uint8_t * diffuse_blob(cantor_ctx * ctx, const uint8_t * in, size_t in_len, size_t * len) {
+    uint8_t *     out = NULL;
+    cantor_status st  = cantor_engine_run_stage(ctx, CANTOR_STAGE_DIFFUSE, in, in_len, &out, len, NULL, NULL, NULL);
+    if (st != CANTOR_DONE) {
+        cantor_engine_free_blob(out);
+        return NULL;
+    }
+    return out;
 }
 
 /* run DIFFUSE to completion; returns the latent blob (caller frees) */
@@ -292,6 +340,145 @@ int main(int argc, char ** argv) {
         }
         cantor_engine_free_blob(paused);
     }
+
+    /* ---- 6. ENCODE: once, counted, and DIFFUSE from its latents ---- */
+    ctx = cantor_engine_load(comps, 3, &opts);
+    if (!(cantor_engine_stages() & (1u << CANTOR_STAGE_ENCODE))) {
+        bad("the stage mask should offer ENCODE");
+    } else {
+        ok("the stage mask offers ENCODE");
+    }
+    {
+        struct counted c   = { 0, 0, 0, 0 };
+        size_t         len = 0;
+        uint8_t *      enc = encode(ctx, cover_req, &len, &c);
+        if (!enc || len < 24 || memcmp(enc, "ACEENC01", 8) != 0) {
+            bad("ENCODE a cover");
+        } else {
+            uint32_t T_src = u32_at(enc, 12), T_ref = u32_at(enc, 16), ref_is_src = u32_at(enc, 20);
+            fprintf(stderr, "[ABI-Audio] encoded: T_src=%u T_ref=%u ref_is_src=%u, %d progress calls (%d/%d)\n",
+                    T_src, T_ref, ref_is_src, c.calls, c.last_i, c.last_n);
+            if (ref_is_src != 1 || T_ref != 0 || len != 24 + u32_at(enc, 8) + (size_t) T_src * 256) {
+                bad("a kept voice should be the source's latents, not a second encode");
+            } else {
+                ok("a kept voice is encoded once");
+            }
+            if (c.calls < 2 || !c.stage_ok || c.last_i != c.last_n) {
+                bad("ENCODE should count its tiles as the ENCODE stage, to the end");
+            } else {
+                ok("ENCODE counts its tiles");
+            }
+
+            size_t    dlen = 0;
+            uint8_t * from = diffuse_blob(ctx, enc, len, &dlen);
+            if (!from || !cover || dlen != cover_len || memcmp(from, cover, dlen) != 0) {
+                bad("DIFFUSE from ENCODE's latents should give the same cover");
+            } else {
+                ok("DIFFUSE from ENCODE's latents gives the same cover");
+            }
+            cantor_engine_free_blob(from);
+            cantor_engine_free(ctx);
+
+            /* paused from latents, torn down, resumed: no re-encode, same bytes */
+            struct pauser p      = { 2, 0, 0 };
+            uint8_t *     paused = NULL;
+            size_t        plen   = 0;
+            ctx                  = cantor_engine_load(comps, 3, &opts);
+            cantor_status st =
+                cantor_engine_run_stage(ctx, CANTOR_STAGE_DIFFUSE, enc, len, &paused, &plen, NULL, cancel_after, &p);
+            cantor_engine_free(ctx);
+            if (st != CANTOR_PAUSED || !paused || memcmp(paused, "ACEDIF02", 8) != 0) {
+                bad("DIFFUSE from latents should pause into a blob that keeps them");
+            } else {
+                ctx               = cantor_engine_load(comps, 3, &opts);
+                size_t    rlen    = 0;
+                uint8_t * resumed = diffuse_blob(ctx, paused, plen, &rlen);
+                if (!resumed || !cover || rlen != cover_len || memcmp(resumed, cover, rlen) != 0) {
+                    bad("a cover resumed from latents should match the uninterrupted run");
+                } else {
+                    ok("a cover resumes from its latents across a teardown, byte-identical");
+                }
+                cantor_engine_free_blob(resumed);
+            }
+            cantor_engine_free_blob(paused);
+        }
+        cantor_engine_free_blob(enc);
+    }
+    {
+        /* an extend from latents still keeps the source's frames */
+        uint8_t * runs[2]  = { NULL, NULL };
+        size_t    lens[2]  = { 0, 0 };
+        int       seeds[2] = { 21, 22 };
+        for (int k = 0; k < 2; k++) {
+            char req[1024];
+            snprintf(req, sizeof(req),
+                     "{\"task_type\":\"repaint\",\"caption\":\"Warm piano chords with soft brushed drums\","
+                     "\"lyrics\":\"[Instrumental]\",\"src_audio_path\":\"%s\",\"repainting_start\":%d,"
+                     "\"repainting_end\":%d,\"seed\":%d,\"inference_steps\":4,\"shift\":3.0}",
+                     src, SOURCE_SECONDS, SOURCE_SECONDS + EXTEND_SECONDS, seeds[k]);
+            size_t    elen = 0;
+            uint8_t * enc  = encode(ctx, req, &elen, NULL);
+            runs[k]        = enc ? diffuse_blob(ctx, enc, elen, &lens[k]) : NULL;
+            cantor_engine_free_blob(enc);
+        }
+        size_t keep = (size_t) (SOURCE_SECONDS * FRAMES_PER_SECOND) - 1;
+        size_t T    = lens[0] / 256;
+        if (!runs[0] || !runs[1] || lens[0] != lens[1] ||
+            T < (size_t) ((SOURCE_SECONDS + EXTEND_SECONDS) * FRAMES_PER_SECOND) - 2) {
+            bad("extend from latents");
+        } else if (memcmp(runs[0], runs[1], keep * 256) != 0) {
+            bad("an extend from latents changed the source's frames");
+        } else if (memcmp(runs[0] + (T - 10) * 256, runs[1] + (T - 10) * 256, 10 * 256) == 0) {
+            bad("an extend from latents generated nothing");
+        } else {
+            ok("an extend from latents keeps the source's frames and generates the rest");
+        }
+        cantor_engine_free_blob(runs[0]);
+        cantor_engine_free_blob(runs[1]);
+    }
+    {
+        /* small tiles: the tiled path counts every tile and stops between them */
+        cantor_load_opts small = opts;
+        small.vae_chunk        = 32;
+        small.vae_overlap      = 8;
+        cantor_ctx *   tiled   = cantor_engine_load(comps, 3, &small);
+        struct counted c       = { 0, 0, 0, 0 };
+        size_t         len     = 0;
+        uint8_t *      enc     = tiled ? encode(tiled, cover_req, &len, &c) : NULL;
+        fprintf(stderr, "[ABI-Audio] tiled encode: %d progress calls (%d/%d)\n", c.calls, c.last_i, c.last_n);
+        if (!enc || c.last_n < 3 || c.calls != c.last_n + 1 || c.last_i != c.last_n || !c.stage_ok) {
+            bad("a tiled ENCODE should report 0..n tiles as the ENCODE stage");
+        } else {
+            ok("a tiled ENCODE reports every tile");
+        }
+        cantor_engine_free_blob(enc);
+
+        struct pauser p      = { 1, 0, 0 };
+        uint8_t *     out    = NULL;
+        size_t        olen   = 0;
+        cantor_status st     = cantor_engine_run_stage(tiled, CANTOR_STAGE_ENCODE, (const uint8_t *) cover_req,
+                                                       strlen(cover_req), &out, &olen, NULL, cancel_after, &p);
+        if (st != CANTOR_PAUSED || olen != strlen(cover_req) || memcmp(out, cover_req, olen) != 0) {
+            fprintf(stderr, "[ABI-Audio] stopped ENCODE: status %d, %zu bytes, %d polls\n", (int) st, olen, p.polls);
+            bad("a stopped ENCODE should pause with the request to start over from");
+        } else {
+            ok("a stopped ENCODE pauses with its request");
+        }
+        cantor_engine_free_blob(out);
+        cantor_engine_free(tiled);
+    }
+    {
+        const char * none = "{\"task_type\":\"cover\",\"caption\":\"x\",\"lyrics\":\"[Instrumental]\"}";
+        size_t       len  = 0;
+        uint8_t *    out  = encode(ctx, none, &len, NULL);
+        if (out || !strstr(cantor_engine_last_error(), "src_audio_path")) {
+            bad("ENCODE with no audio should fail naming src_audio_path");
+        } else {
+            ok("ENCODE with no audio is refused by name");
+        }
+        cantor_engine_free_blob(out);
+    }
+    cantor_engine_free(ctx);
 
     cantor_engine_free_blob(cover);
     remove(src);

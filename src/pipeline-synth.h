@@ -184,6 +184,19 @@ bool ace_synth_decode_latent(AceSynth *           ctx,
                              bool (*cancel)(void *) = nullptr,
                              void * cancel_data     = nullptr);
 
+// Encode interleaved stereo 48 kHz audio into a latent [T, 64], without a job.
+// The ENCODE stage: the counterpart of ace_synth_decode_latent, so a host can
+// keep a source's latents and hand them to phase 1 (src_latents, ref_latents)
+// instead of re-encoding on every run. Reports tiles through the context's
+// progress callback and polls cancel between them. False on error or cancel.
+bool ace_synth_encode_audio(AceSynth *           ctx,
+                            const float *        audio,
+                            int                  n_samples,
+                            std::vector<float> & latent,
+                            int *                T_out,
+                            bool (*cancel)(void *) = nullptr,
+                            void * cancel_data     = nullptr);
+
 void ace_synth_job_free(AceSynthJob * job);
 
 void ace_audio_free(AceAudio * audio);

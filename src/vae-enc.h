@@ -292,13 +292,20 @@ static int vae_enc_encode(VAEEncoder *  m,
 
 // Tiled encode for long audio (same chunking strategy as decoder)
 // chunk_size: latent frames per tile, overlap: context frames on each side
+// Returns T_latent, -1 on error, or VAE_ENC_CANCELLED when cancel fired: the
+// caller learns it was stopped without asking the callback a second time.
+#define VAE_ENC_CANCELLED (-2)
 static int vae_enc_encode_tiled(VAEEncoder *  m,
                                 const float * audio,       // [T_audio, 2] interleaved stereo
                                 int           T_audio,
                                 float *       latent_out,  // [T_latent, 64] output, time-major
                                 int           max_T_latent,
                                 int           chunk_size = 256,
-                                int           overlap    = 64) {
+                                int           overlap    = 64,
+                                bool (*cancel)(void *)   = nullptr,
+                                void * cancel_data       = nullptr,
+                                void (*progress)(int, int, void *) = nullptr,
+                                void * progress_data     = nullptr) {
     // Work in audio-sample space. Each latent frame = 1920 audio samples.
     int audio_chunk   = chunk_size * 1920;
     int audio_overlap = overlap * 1920;
@@ -308,9 +315,16 @@ static int vae_enc_encode_tiled(VAEEncoder *  m,
         audio_overlap /= 2;
     }
 
-    // Short audio: encode directly
+    // Short audio: encode directly. One graph, so one unit of progress.
     if (T_audio <= audio_chunk) {
-        return vae_enc_encode(m, audio, T_audio, latent_out, max_T_latent);
+        if (progress) {
+            progress(0, 1, progress_data);
+        }
+        int r = vae_enc_encode(m, audio, T_audio, latent_out, max_T_latent);
+        if (r >= 0 && progress) {
+            progress(1, 1, progress_data);
+        }
+        return r;
     }
 
     int audio_stride = audio_chunk - 2 * audio_overlap;
@@ -322,7 +336,14 @@ static int vae_enc_encode_tiled(VAEEncoder *  m,
     float downsample_factor = 0.0f;
     int   latent_write_pos  = 0;
 
+    if (progress) {
+        progress(0, num_steps, progress_data);
+    }
     for (int i = 0; i < num_steps; i++) {
+        if (cancel && cancel(cancel_data)) {
+            fprintf(stderr, "[VAE-Enc] Cancelled at tile %d/%d\n", i, num_steps);
+            return VAE_ENC_CANCELLED;
+        }
         // Core range in audio samples (the part we keep)
         int core_start = i * audio_stride;
         int core_end   = core_start + audio_stride;
@@ -384,6 +405,9 @@ static int vae_enc_encode_tiled(VAEEncoder *  m,
         }
 
         latent_write_pos += core_len;
+        if (progress) {
+            progress(i + 1, num_steps, progress_data);
+        }
     }
 
     fprintf(stderr, "[VAE-Enc] Tiled encode done: %d tiles -> T_latent=%d (%.2fs @ 48kHz)\n", num_steps,

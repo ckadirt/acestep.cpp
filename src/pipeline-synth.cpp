@@ -877,6 +877,42 @@ bool ace_synth_decode_latent(AceSynth *           ctx,
     return true;
 }
 
+bool ace_synth_encode_audio(AceSynth *           ctx,
+                            const float *        audio,
+                            int                  n_samples,
+                            std::vector<float> & latent,
+                            int *                T_out,
+                            bool (*cancel)(void *),
+                            void * cancel_data) {
+    if (!ctx || !audio || n_samples <= 0) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Synth-Encode] null context or empty audio");
+        return false;
+    }
+    VAEEncoder * vae_enc = store_require_vae_enc(ctx->store, ctx->vae_enc_key);
+    if (!vae_enc) {
+        return false;
+    }
+    ModelHandle guard(ctx->store, vae_enc);
+
+    const int max_T = n_samples / 1920 + 64;
+    latent.assign((size_t) max_T * 64, 0.0f);
+    int T = vae_enc_encode_tiled(vae_enc, audio, n_samples, latent.data(), max_T, ctx->params.vae_chunk,
+                                 ctx->params.vae_overlap, cancel, cancel_data, ctx->progress, ctx->progress_data);
+    if (T == VAE_ENC_CANCELLED) {
+        ace_set_error(ACE_ERR_CANCELLED, "[Synth-Encode] cancelled");
+        return false;
+    }
+    if (T < 0) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Synth-Encode] tiled encode failed");
+        return false;
+    }
+    latent.resize((size_t) T * 64);
+    if (T_out) {
+        *T_out = T;
+    }
+    return true;
+}
+
 void ace_synth_job_free(AceSynthJob * job) {
     delete job;
 }

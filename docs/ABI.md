@@ -154,7 +154,8 @@ What you can rely on:
 |---|---|---|
 | `PLAN` | request JSON | enriched request JSON |
 | `CODES` | request JSON | request JSON with `audio_codes` |
-| `DIFFUSE` | request JSON | latent (done) / resume blob (paused) |
+| `ENCODE` | request JSON naming audio | encoded blob (done) / the request again (paused) |
+| `DIFFUSE` | request JSON, or `ENCODE`'s blob | latent (done) / resume blob (paused) |
 | `DECODE` | latent | none; audio via `cantor_engine_audio` |
 
 One exception worth knowing: a **completed** `DIFFUSE` blob is a raw
@@ -185,7 +186,24 @@ A request can name audio by path; `DIFFUSE` reads it:
 
 A task that needs a source and has none fails naming `src_audio_path`, as does
 a path that cannot be read; it never quietly becomes text2music. Such a task
-skips `PLAN` and `CODES`: a host enters it at `DIFFUSE`.
+skips `PLAN` and `CODES`: a host enters it at `ENCODE`, or at `DIFFUSE` if it
+does not know `ENCODE`.
+
+### `ENCODE`
+
+Bit 5 of `cantor_engine_stages()`, outside the contiguous `PLAN..DECODE` run:
+a side entrance for a request that carries audio, always followed by
+`DIFFUSE`. It reads the request's files and VAE-encodes them, counting tiles
+through the progress callback (`stage = CANTOR_STAGE_ENCODE`), and emits the
+request with the latents of its source and its reference. A reference that is
+the source (a kept voice, the same path) is not encoded twice. Stopped between
+tiles, it pauses with the request itself: nothing partial is kept.
+
+`DIFFUSE` given that blob conditions on the latents instead of the files, and
+gives byte-identical output to a `DIFFUSE` that read them itself. Paused, it
+keeps the latents in its resume blob (`ACEDIF02`), so a resume never encodes
+again. On a 3-minute source on CPU, encoding was 13 minutes of a job: worth a
+stage of its own, its own progress, and a checkpoint.
 
 The paths are part of `AceRequest`, so a paused `DIFFUSE` blob carries them
 and a resume re-reads the same files. A finished `DIFFUSE` emits the latent

@@ -9,7 +9,9 @@
 // bytes and hands them back; nothing outside this file parses them.
 //
 //   PLAN / CODES     request JSON (UTF-8, not NUL-terminated)
-//   DIFFUSE in       request JSON
+//   ENCODE in        request JSON naming its audio
+//   ENCODE out       done: EncodedBlob (below). paused: the request JSON again
+//   DIFFUSE in       request JSON, or an EncodedBlob
 //   DIFFUSE out      paused: DiffuseBlob (below). done: raw [T,64] f32 latent
 //   DECODE in        raw [T,64] f32 latent
 //
@@ -107,7 +109,7 @@ extern "C" const char * cantor_engine_version(void) {
 
 extern "C" uint32_t cantor_engine_stages(void) {
     return (1u << CANTOR_STAGE_PLAN) | (1u << CANTOR_STAGE_CODES) | (1u << CANTOR_STAGE_DIFFUSE) |
-           (1u << CANTOR_STAGE_DECODE);
+           (1u << CANTOR_STAGE_DECODE) | (1u << CANTOR_STAGE_ENCODE);
 }
 
 // What this build does with audio. Kept in step with run_diffuse below: cover
@@ -151,7 +153,22 @@ struct LmHeader {
 };
 
 // Paused DIFFUSE blob. Fixed header, then the request JSON, then the latent.
+// ACEDIF02, for a run that started from ENCODE's latents, carries the whole
+// EncodedBlob where 01 carries the JSON, so a resume never re-encodes.
 #define DIFFUSE_MAGIC "ACEDIF01"
+#define DIFFUSE_MAGIC_ENCODED "ACEDIF02"
+
+// ENCODE's output: a request and the latents of the audio it names. The
+// reference is omitted when it is the source (a kept voice): same latents.
+#define ENCODED_MAGIC "ACEENC01"
+
+struct EncodedHeader {
+    char     magic[8];
+    uint32_t json_len;
+    uint32_t T_src;       // 0: no source
+    uint32_t T_ref;       // 0: no reference, or the source is the reference
+    uint32_t ref_is_src;  // 1: the reference is the source
+};
 
 struct DiffuseHeader {
     char     magic[8];
@@ -500,6 +517,127 @@ static bool read_request_audio(const std::string & path, const char * field, std
     return true;
 }
 
+// ----------------------------------------------------------- stage: ENCODE
+
+// A request with its audio already encoded: what ENCODE produces and DIFFUSE
+// takes in place of the files.
+struct Encoded {
+    std::string        json;
+    std::vector<float> src;  // [T_src * 64]
+    std::vector<float> ref;  // [T_ref * 64], empty when ref_is_src
+    int                T_src      = 0;
+    int                T_ref      = 0;
+    bool               ref_is_src = false;
+};
+
+static std::vector<uint8_t> encoded_bytes(const Encoded & e) {
+    EncodedHeader h = {};
+    memcpy(h.magic, ENCODED_MAGIC, 8);
+    h.json_len   = (uint32_t) e.json.size();
+    h.T_src      = (uint32_t) e.T_src;
+    h.T_ref      = (uint32_t) e.T_ref;
+    h.ref_is_src = e.ref_is_src ? 1u : 0u;
+    std::vector<uint8_t> buf(sizeof(h) + e.json.size() + (e.src.size() + e.ref.size()) * sizeof(float));
+    uint8_t * p = buf.data();
+    memcpy(p, &h, sizeof(h));
+    p += sizeof(h);
+    memcpy(p, e.json.data(), e.json.size());
+    p += e.json.size();
+    memcpy(p, e.src.data(), e.src.size() * sizeof(float));
+    p += e.src.size() * sizeof(float);
+    memcpy(p, e.ref.data(), e.ref.size() * sizeof(float));
+    return buf;
+}
+
+static bool is_encoded(const uint8_t * in, size_t in_len) {
+    return in_len >= sizeof(EncodedHeader) && !memcmp(in, ENCODED_MAGIC, 8);
+}
+
+// Parses an EncodedBlob that must fill exactly in_len bytes.
+static bool parse_encoded(const uint8_t * in, size_t in_len, Encoded & e) {
+    EncodedHeader h;
+    memcpy(&h, in, sizeof(h));
+    const size_t src_n = (size_t) h.T_src * 64;
+    const size_t ref_n = h.ref_is_src ? 0 : (size_t) h.T_ref * 64;
+    const size_t need  = sizeof(h) + h.json_len + (src_n + ref_n) * sizeof(float);
+    if (in_len != need) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] encoded blob is %zu bytes, header describes %zu", in_len, need);
+        return false;
+    }
+    const uint8_t * p = in + sizeof(h);
+    e.json.assign((const char *) p, h.json_len);
+    p += h.json_len;
+    e.src.assign((const float *) p, (const float *) p + src_n);
+    p += src_n * sizeof(float);
+    e.ref.assign((const float *) p, (const float *) p + ref_n);
+    e.T_src      = (int) h.T_src;
+    e.T_ref      = h.ref_is_src ? (int) h.T_src : (int) h.T_ref;
+    e.ref_is_src = h.ref_is_src != 0;
+    return true;
+}
+
+static cantor_status run_encode(cantor_ctx *    c,
+                                const uint8_t * in,
+                                size_t          in_len,
+                                uint8_t **      out,
+                                size_t *        out_len) {
+    if (!c->synth) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] dit/embed/vae components are required for ENCODE");
+        return CANTOR_ERR;
+    }
+    Encoded e;
+    e.json.assign((const char *) in, in_len);
+    AceRequest req;
+    request_init(&req);
+    if (!request_parse_json(&req, e.json.c_str())) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] state blob is not a valid request JSON");
+        return CANTOR_ERR;
+    }
+    if (req.src_audio_path.empty() && req.ref_audio_path.empty()) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] ENCODE needs src_audio_path or ref_audio_path");
+        return CANTOR_ERR;
+    }
+    // A kept voice is the source itself: the same file, the same latents.
+    e.ref_is_src = !req.ref_audio_path.empty() && req.ref_audio_path == req.src_audio_path;
+
+    auto encode = [&](const std::string & path, const char * field, std::vector<float> & latent, int * T) {
+        std::vector<float> audio;
+        int                n = 0;
+        if (!read_request_audio(path, field, audio, &n)) {
+            return CANTOR_ERR;
+        }
+        if (!ace_synth_encode_audio(c->synth, audio.data(), n, latent, T, cancel_tramp, c)) {
+            // Stopped between tiles: nothing worth keeping, so the resume
+            // blob is the request itself and ENCODE starts over.
+            if (ace_error_code() == ACE_ERR_CANCELLED) {
+                return blob_alloc(in, in_len, out, out_len) ? CANTOR_PAUSED : CANTOR_ERR;
+            }
+            return CANTOR_ERR;
+        }
+        return CANTOR_DONE;
+    };
+
+    if (!req.src_audio_path.empty()) {
+        cantor_status st = encode(req.src_audio_path, "src_audio_path", e.src, &e.T_src);
+        if (st != CANTOR_DONE) {
+            return st;
+        }
+    }
+    if (!req.ref_audio_path.empty() && !e.ref_is_src) {
+        cantor_status st = encode(req.ref_audio_path, "ref_audio_path", e.ref, &e.T_ref);
+        if (st != CANTOR_DONE) {
+            return st;
+        }
+    }
+    fprintf(stderr, "[ABI] ENCODE: src %d frames, ref %s\n", e.T_src,
+            e.ref_is_src ? "is the source" : (e.T_ref > 0 ? "encoded" : "none"));
+    std::vector<uint8_t> buf = encoded_bytes(e);
+    if (!blob_alloc(buf.data(), buf.size(), out, out_len)) {
+        return CANTOR_ERR;
+    }
+    return CANTOR_DONE;
+}
+
 static cantor_status run_diffuse(cantor_ctx *    c,
                                  const uint8_t * in,
                                  size_t          in_len,
@@ -510,10 +648,14 @@ static cantor_status run_diffuse(cantor_ctx *    c,
         return CANTOR_ERR;
     }
 
-    // Resuming? A paused blob leads with the magic.
-    bool          resuming = (in_len > sizeof(DiffuseHeader) && !memcmp(in, DIFFUSE_MAGIC, 8));
-    DiffuseHeader hdr      = {};
+    // Resuming? A paused blob leads with the magic. Starting from ENCODE?
+    // Its blob does. Otherwise the input is a request naming its files.
+    const bool resuming = in_len > sizeof(DiffuseHeader) &&
+                          (!memcmp(in, DIFFUSE_MAGIC, 8) || !memcmp(in, DIFFUSE_MAGIC_ENCODED, 8));
+    DiffuseHeader hdr = {};
     std::string   json;
+    Encoded       enc;
+    bool          have_enc = false;
 
     if (resuming) {
         memcpy(&hdr, in, sizeof(hdr));
@@ -522,7 +664,22 @@ static cantor_status run_diffuse(cantor_ctx *    c,
             ace_set_error(ACE_ERR_INTERNAL, "[ABI] paused blob is %zu bytes, header describes %zu", in_len, need);
             return CANTOR_ERR;
         }
-        json.assign((const char *) in + sizeof(hdr), hdr.json_len);
+        const uint8_t * body = in + sizeof(hdr);
+        if (!memcmp(in, DIFFUSE_MAGIC_ENCODED, 8)) {
+            if (!is_encoded(body, hdr.json_len) || !parse_encoded(body, hdr.json_len, enc)) {
+                return CANTOR_ERR;
+            }
+            have_enc = true;
+            json     = enc.json;
+        } else {
+            json.assign((const char *) body, hdr.json_len);
+        }
+    } else if (is_encoded(in, in_len)) {
+        if (!parse_encoded(in, in_len, enc)) {
+            return CANTOR_ERR;
+        }
+        have_enc = true;
+        json     = enc.json;
     } else {
         json.assign((const char *) in, in_len);
     }
@@ -535,18 +692,25 @@ static cantor_status run_diffuse(cantor_ctx *    c,
     }
     request_resolve_seed(&req);
 
-    if (task_needs_source(req.task_type) && req.src_audio_path.empty()) {
+    if (task_needs_source(req.task_type) && (have_enc ? enc.T_src == 0 : req.src_audio_path.empty())) {
         ace_set_error(ACE_ERR_INTERNAL, "[ABI] task '%s' needs src_audio_path", req.task_type.c_str());
         return CANTOR_ERR;
     }
+    // Latents from ENCODE, or the files themselves, encoded inside phase 1.
     std::vector<float> src, ref;
     int                src_len = 0, ref_len = 0;
-    if (!read_request_audio(req.src_audio_path, "src_audio_path", src, &src_len) ||
-        !read_request_audio(req.ref_audio_path, "ref_audio_path", ref, &ref_len)) {
+    if (!have_enc && (!read_request_audio(req.src_audio_path, "src_audio_path", src, &src_len) ||
+                      !read_request_audio(req.ref_audio_path, "ref_audio_path", ref, &ref_len))) {
         return CANTOR_ERR;
     }
-    const float * src_p = src.empty() ? nullptr : src.data();
-    const float * ref_p = ref.empty() ? nullptr : ref.data();
+    const float * src_p   = src.empty() ? nullptr : src.data();
+    const float * ref_p   = ref.empty() ? nullptr : ref.data();
+    const float * src_lat = have_enc && enc.T_src > 0 ? enc.src.data() : nullptr;
+    const float * ref_lat = !have_enc || enc.T_ref == 0 ? nullptr
+                            : enc.ref_is_src          ? enc.src.data()
+                                                      : enc.ref.data();
+    const int     src_T   = have_enc ? enc.T_src : 0;
+    const int     ref_T   = have_enc ? enc.T_ref : 0;
 
     AceSynthJob * job = nullptr;
 
@@ -577,8 +741,8 @@ static cantor_status run_diffuse(cantor_ctx *    c,
 
         // Rebuild phase 1 up to the DiT, then hand it the saved latent. There
         // is no cheaper route: the conditioning is not in the blob by design.
-        job = ace_synth_job_run_dit(c->synth, &req, src_p, src_len, nullptr, 0, ref_p, ref_len, nullptr, 0, 1,
-                                    ace_synth_abort_immediately, nullptr);
+        job = ace_synth_job_run_dit(c->synth, &req, src_p, src_len, src_lat, src_T, ref_p, ref_len, ref_lat, ref_T,
+                                    1, ace_synth_abort_immediately, nullptr);
         if (!job) {
             return CANTOR_ERR;
         }
@@ -593,8 +757,8 @@ static cantor_status run_diffuse(cantor_ctx *    c,
             return CANTOR_ERR;
         }
     } else {
-        job = ace_synth_job_run_dit(c->synth, &req, src_p, src_len, nullptr, 0, ref_p, ref_len, nullptr, 0, 1,
-                                    cancel_tramp, c);
+        job = ace_synth_job_run_dit(c->synth, &req, src_p, src_len, src_lat, src_T, ref_p, ref_len, ref_lat, ref_T,
+                                    1, cancel_tramp, c);
         if (!job) {
             return CANTOR_ERR;
         }
@@ -610,14 +774,21 @@ static cantor_status run_diffuse(cantor_ctx *    c,
             return CANTOR_ERR;
         }
         DiffuseHeader h = {};
-        memcpy(h.magic, DIFFUSE_MAGIC, 8);
+        memcpy(h.magic, have_enc ? DIFFUSE_MAGIC_ENCODED : DIFFUSE_MAGIC, 8);
         h.step      = (uint32_t) step;
         h.num_steps = (uint32_t) total;
         h.batch_n   = (uint32_t) bn;
         h.T         = (uint32_t) T;
         h.Oc        = (uint32_t) Oc;
+        // The request with its seed resolved, and, after ENCODE, the latents
+        // it was conditioned on: a resume must not encode again.
         std::string j = request_to_json(&req, true);
-        h.json_len    = (uint32_t) j.size();
+        if (have_enc) {
+            enc.json                     = j;
+            std::vector<uint8_t> encoded = encoded_bytes(enc);
+            j.assign((const char *) encoded.data(), encoded.size());
+        }
+        h.json_len = (uint32_t) j.size();
         snprintf(h.backend, sizeof(h.backend), "%s", ace_synth_backend_name(c->synth));
         snprintf(h.solver, sizeof(h.solver), "%s", req.solver.c_str());
 
@@ -716,6 +887,8 @@ extern "C" cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
             return abi_guard([&] { return run_diffuse(ctx, state_in, in_len, state_out, out_len); }, CANTOR_ERR);
         case CANTOR_STAGE_DECODE:
             return abi_guard([&] { return run_decode(ctx, state_in, in_len); }, CANTOR_ERR);
+        case CANTOR_STAGE_ENCODE:
+            return abi_guard([&] { return run_encode(ctx, state_in, in_len, state_out, out_len); }, CANTOR_ERR);
     }
     ace_set_error(ACE_ERR_INTERNAL, "[ABI] unknown stage %d", (int) stage);
     return CANTOR_ERR;

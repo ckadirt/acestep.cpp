@@ -60,11 +60,18 @@ typedef enum {
     CANTOR_STAGE_CODES   = 2,  // LM: -> audio codes
     CANTOR_STAGE_DIFFUSE = 3,  // DiT: flow matching, re-enterable
     CANTOR_STAGE_DECODE  = 4,  // VAE: latents -> PCM
+    CANTOR_STAGE_ENCODE  = 5,  // VAE: a request's audio -> latents, then DIFFUSE
 } cantor_stage;
 
 // Bitmask of the stages this build can run, so a cut-down or CPU-only engine
 // can advertise honestly instead of failing at call time.
 // Bit position is the stage value: (1u << CANTOR_STAGE_DIFFUSE) etc.
+//
+// PLAN..DECODE are one contiguous run ending at DECODE. ENCODE is not in it:
+// it is a side entrance for a request that carries audio (src_audio_path,
+// ref_audio_path), always followed by DIFFUSE, which then takes ENCODE's
+// output instead of the request. A host that does not know the bit ignores it
+// and enters such a request at DIFFUSE, which encodes inside, as before.
 CANTOR_API uint32_t cantor_engine_stages(void);
 
 // What this build can do with audio, as a static comma-separated list of
