@@ -190,8 +190,8 @@ jobs:
           test -f build/libcantor_engine.so
           echo "--- exported symbols ---"
           nm -D --defined-only build/libcantor_engine.so | awk '{print $3}' \
-            | grep -c '^cantor_engine_' | grep -qx 13 \
-            || { echo "FAIL: expected exactly 13 exported cantor_engine_* symbols"; exit 1; }
+            | grep -c '^cantor_engine_' | grep -qx 14 \
+            || { echo "FAIL: expected exactly 14 exported cantor_engine_* symbols"; exit 1; }
 
       - name: Package
         id: pkg
