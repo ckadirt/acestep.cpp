@@ -8,7 +8,10 @@
 //
 // The record is thread-local: the server runs one worker thread today, but a
 // process-wide slot would tear under any future concurrency and this costs
-// nothing.
+// nothing. It is one record per thread across the whole library: `inline`,
+// not `static`. A `static` record in this header gave every source file its
+// own copy, so a failure recorded in a pipeline was invisible to the ABI that
+// reports it (an OOM in the DiT read as "no error" to the host).
 //
 // Codes are the classes a caller can act on differently, nothing finer. OOM
 // means retry smaller; BAD_MODEL means the file is wrong for this build;
@@ -32,11 +35,11 @@ struct AceError {
     char         msg[512];
 };
 
-static thread_local AceError g_ace_error = { ACE_OK, { 0 } };
+inline thread_local AceError g_ace_error = { ACE_OK, { 0 } };
 
 // Record a failure. Also mirrors to stderr so CLI behaviour is unchanged from
 // the exit(1) days: the operator still sees the message on the terminal.
-static void ace_set_error(AceErrorCode code, const char * fmt, ...) {
+inline void ace_set_error(AceErrorCode code, const char * fmt, ...) {
     g_ace_error.code = code;
 
     va_list ap;
@@ -48,20 +51,20 @@ static void ace_set_error(AceErrorCode code, const char * fmt, ...) {
     fflush(stderr);
 }
 
-static void ace_clear_error(void) {
+inline void ace_clear_error(void) {
     g_ace_error.code   = ACE_OK;
     g_ace_error.msg[0] = 0;
 }
 
-static AceErrorCode ace_error_code(void) {
+inline AceErrorCode ace_error_code(void) {
     return g_ace_error.code;
 }
 
-static const char * ace_error_msg(void) {
+inline const char * ace_error_msg(void) {
     return g_ace_error.msg[0] ? g_ace_error.msg : "no error";
 }
 
-static const char * ace_error_name(AceErrorCode c) {
+inline const char * ace_error_name(AceErrorCode c) {
     switch (c) {
         case ACE_OK:              return "OK";
         case ACE_ERR_OOM:         return "OOM";
