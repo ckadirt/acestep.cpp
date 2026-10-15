@@ -57,7 +57,15 @@ void ops_init_noise(const AceSynth * ctx, const AceRequest * reqs, int batch_n, 
 // Run the DiT denoising loop.
 int ops_dit_generate(const AceSynth * ctx, int batch_n, SynthState & s, bool (*cancel)(void *), void * cancel_data);
 
-// Phase 2 primitive.
+// Phase 2 primitives.
+
+// Latent splice for repaint/lego, for one track's [T * 64] latent in place:
+// keeps the generated frames inside [repaint_t0, repaint_t1) and copies the
+// source latents everywhere else. A no-op for tasks without a region. Returns
+// true when it spliced. The one implementation both phase 2 and a host that
+// takes the latent out before decoding (the Cantor ABI) go through, so the two
+// cannot drift.
+bool ops_latent_splice(const SynthState & s, float * track_latent);
 
 // Latent splice for repaint/lego (kept generated frames inside [t0, t1),
 // source latents elsewhere) followed by VAE decode for every batch item.

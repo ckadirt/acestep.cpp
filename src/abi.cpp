@@ -13,6 +13,12 @@
 //   DIFFUSE out      paused: DiffuseBlob (below). done: raw [T,64] f32 latent
 //   DECODE in        raw [T,64] f32 latent
 //
+// Audio in comes by path, inside the request (src_audio_path, ref_audio_path):
+// the host hands over a request, never buffers, and a paused DIFFUSE blob
+// carries the request, so a resume re-reads the same files. A finished DIFFUSE
+// emits the latent with the repaint/lego splice already applied, because
+// DECODE decodes a bare latent and has no source to splice from.
+//
 // The paused DIFFUSE blob stamps the backend name and solver. Resuming a run
 // on a different backend re-derives the conditioning through different
 // kernels, so the second half of the trajectory drifts: the track does not
@@ -21,11 +27,13 @@
 
 #include "cantor_engine.h"
 
+#include "audio-io.h"
 #include "error.h"
 #include "model-store.h"
 #include "pipeline-lm.h"
 #include "pipeline-synth.h"
 #include "request.h"
+#include "task-types.h"
 #include "version.h"
 
 #include <cstdlib>
@@ -100,6 +108,15 @@ extern "C" const char * cantor_engine_version(void) {
 extern "C" uint32_t cantor_engine_stages(void) {
     return (1u << CANTOR_STAGE_PLAN) | (1u << CANTOR_STAGE_CODES) | (1u << CANTOR_STAGE_DIFFUSE) |
            (1u << CANTOR_STAGE_DECODE);
+}
+
+// What this build does with audio. Kept in step with run_diffuse below: cover
+// and cover-nofsq take src_audio_path, repaint inside the source is inpaint and
+// outside it is extend, and ref_audio_path is the timbre reference. lego,
+// extract and complete need the base DiT, which a catalog variant declares
+// separately, and are not claimed here until a host has run them.
+extern "C" const char * cantor_engine_capabilities(void) {
+    return "cover,extend,inpaint,timbre";
 }
 
 // ------------------------------------------------------------------- blobs
@@ -448,6 +465,41 @@ static cantor_status run_lm(cantor_ctx *    c,
 
 // --------------------------------------------------------- stage: DIFFUSE
 
+// Tasks that read a source track. Without one the pipeline would have nothing
+// to cover or repaint, so the request is refused here, by name, rather than
+// failing deep in the DiT or quietly becoming text2music.
+static bool task_needs_source(const std::string & task) {
+    return task == TASK_COVER || task == TASK_COVER_NOFSQ || task == TASK_REPAINT || task == TASK_LEGO ||
+           task == TASK_EXTRACT || task == TASK_COMPLETE;
+}
+
+// Read an audio file named by a request field into interleaved stereo 48 kHz,
+// the layout ace_synth_job_run_dit takes. An empty path is "none".
+static bool read_request_audio(const std::string & path, const char * field, std::vector<float> & out, int * len) {
+    out.clear();
+    *len = 0;
+    if (path.empty()) {
+        return true;
+    }
+    int     T      = 0;
+    float * planar = audio_read_48k(path.c_str(), &T);
+    if (!planar || T <= 0) {
+        free(planar);
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] cannot read %s '%s' (WAV or MP3)", field, path.c_str());
+        return false;
+    }
+    float * inter = audio_planar_to_interleaved(planar, T);
+    free(planar);
+    if (!inter) {
+        ace_set_error(ACE_ERR_OOM, "[ABI] cannot allocate %s (%d samples)", field, T);
+        return false;
+    }
+    out.assign(inter, inter + (size_t) 2 * T);
+    free(inter);
+    *len = T;
+    return true;
+}
+
 static cantor_status run_diffuse(cantor_ctx *    c,
                                  const uint8_t * in,
                                  size_t          in_len,
@@ -483,6 +535,19 @@ static cantor_status run_diffuse(cantor_ctx *    c,
     }
     request_resolve_seed(&req);
 
+    if (task_needs_source(req.task_type) && req.src_audio_path.empty()) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] task '%s' needs src_audio_path", req.task_type.c_str());
+        return CANTOR_ERR;
+    }
+    std::vector<float> src, ref;
+    int                src_len = 0, ref_len = 0;
+    if (!read_request_audio(req.src_audio_path, "src_audio_path", src, &src_len) ||
+        !read_request_audio(req.ref_audio_path, "ref_audio_path", ref, &ref_len)) {
+        return CANTOR_ERR;
+    }
+    const float * src_p = src.empty() ? nullptr : src.data();
+    const float * ref_p = ref.empty() ? nullptr : ref.data();
+
     AceSynthJob * job = nullptr;
 
     if (resuming) {
@@ -512,7 +577,7 @@ static cantor_status run_diffuse(cantor_ctx *    c,
 
         // Rebuild phase 1 up to the DiT, then hand it the saved latent. There
         // is no cheaper route: the conditioning is not in the blob by design.
-        job = ace_synth_job_run_dit(c->synth, &req, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, 1,
+        job = ace_synth_job_run_dit(c->synth, &req, src_p, src_len, nullptr, 0, ref_p, ref_len, nullptr, 0, 1,
                                     ace_synth_abort_immediately, nullptr);
         if (!job) {
             return CANTOR_ERR;
@@ -528,7 +593,8 @@ static cantor_status run_diffuse(cantor_ctx *    c,
             return CANTOR_ERR;
         }
     } else {
-        job = ace_synth_job_run_dit(c->synth, &req, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, 1, cancel_tramp, c);
+        job = ace_synth_job_run_dit(c->synth, &req, src_p, src_len, nullptr, 0, ref_p, ref_len, nullptr, 0, 1,
+                                    cancel_tramp, c);
         if (!job) {
             return CANTOR_ERR;
         }
@@ -568,11 +634,15 @@ static cantor_status run_diffuse(cantor_ctx *    c,
         return CANTOR_PAUSED;
     }
 
-    // Completed: emit the latent in the wire format DECODE and /vae both take.
-    int           T   = 0;
-    const float * lat = ace_synth_job_get_latent(job, 0, &T);
-    std::vector<float> copy(lat, lat + (size_t) T * 64);
+    // Completed: emit the latent in the wire format DECODE and /vae both take,
+    // spliced, so a repaint keeps its source outside the region.
+    int                T = 0;
+    std::vector<float> copy;
+    bool               ok = ace_synth_job_get_spliced_latent(job, 0, copy, &T);
     ace_synth_job_free(job);
+    if (!ok) {
+        return CANTOR_ERR;
+    }
 
     if (!blob_alloc(copy.data(), copy.size() * sizeof(float), out, out_len)) {
         return CANTOR_ERR;

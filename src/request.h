@@ -90,6 +90,15 @@ struct AceRequest {
     // track name for lego/extract/complete (e.g. "vocals", "drums", "guitar")
     std::string track;  // ""
 
+    // Source and timbre reference audio, by path (WAV or MP3, any rate), for
+    // hosts that pass a request rather than buffers: the Cantor ABI's DIFFUSE
+    // stage reads them. They live here rather than beside the request because
+    // a paused DIFFUSE blob re-serializes the request, and a resume has to
+    // re-encode the same source. The CLI and server pass buffers instead and
+    // ignore these.
+    std::string src_audio_path;  // ""
+    std::string ref_audio_path;  // ""
+
     // Solver name resolved by solver_lookup() (see src/solvers).
     // Accepted values: "euler", "sde", "dpm3m", "stork4".
     std::string solver;          // "euler"

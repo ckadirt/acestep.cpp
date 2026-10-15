@@ -50,6 +50,8 @@ void request_init(AceRequest * r) {
     r->custom_timesteps     = "";
     r->task_type            = TASK_TEXT2MUSIC;
     r->track                = "";
+    r->src_audio_path       = "";
+    r->ref_audio_path       = "";
     r->solver               = SOLVER_EULER;
     r->stork_substeps       = STORK_SUBSTEPS_DEFAULT;
     r->lm_mode              = LM_MODE_NAME_GENERATE;
@@ -99,6 +101,12 @@ static void request_parse_obj(yyjson_val * obj, AceRequest * r) {
     }
     if ((v = yyjson_obj_get(obj, "track")) && yyjson_is_str(v)) {
         r->track = yy_str(v);
+    }
+    if ((v = yyjson_obj_get(obj, "src_audio_path")) && yyjson_is_str(v)) {
+        r->src_audio_path = yy_str(v);
+    }
+    if ((v = yyjson_obj_get(obj, "ref_audio_path")) && yyjson_is_str(v)) {
+        r->ref_audio_path = yy_str(v);
     }
     if ((v = yyjson_obj_get(obj, "solver")) && yyjson_is_str(v) && yyjson_get_len(v) > 0) {
         r->solver = yy_str(v);
@@ -446,6 +454,12 @@ static yyjson_mut_doc * request_build_doc(const AceRequest * r, bool sparse) {
     yyjson_mut_obj_add_str(doc, root, "task_type", r->task_type.c_str());
     if (all || r->track != def.track) {
         yyjson_mut_obj_add_str(doc, root, "track", r->track.c_str());
+    }
+    if (all || r->src_audio_path != def.src_audio_path) {
+        yyjson_mut_obj_add_str(doc, root, "src_audio_path", r->src_audio_path.c_str());
+    }
+    if (all || r->ref_audio_path != def.ref_audio_path) {
+        yyjson_mut_obj_add_str(doc, root, "ref_audio_path", r->ref_audio_path.c_str());
     }
     if (all || r->peak_clip != def.peak_clip) {
         yyjson_mut_obj_add_int(doc, root, "peak_clip", r->peak_clip);

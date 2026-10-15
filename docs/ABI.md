@@ -15,6 +15,7 @@ which model it needs rather than by which song it belongs to.
 - [Loading](#loading)
 - [Running a stage](#running-a-stage)
 - [State blobs](#state-blobs)
+- [Audio in](#audio-in)
 - [Pause and resume](#pause-and-resume)
 - [Progress and cancellation](#progress-and-cancellation)
 - [Errors](#errors)
@@ -172,6 +173,32 @@ Sizes, measured on a 12-second track:
 | Paused `PLAN` / `CODES` | ~372 B |
 
 ---
+
+## Audio in
+
+A request can name audio by path; `DIFFUSE` reads it:
+
+| Field | Read as |
+| --- | --- |
+| `src_audio_path` | the source of `cover`, `cover-nofsq`, `repaint`, `lego`, `extract`, `complete` (WAV or MP3, any rate, resampled to 48 kHz) |
+| `ref_audio_path` | a timbre reference, for any task |
+
+A task that needs a source and has none fails naming `src_audio_path`, as does
+a path that cannot be read; it never quietly becomes text2music. Such a task
+skips `PLAN` and `CODES`: a host enters it at `DIFFUSE`.
+
+The paths are part of `AceRequest`, so a paused `DIFFUSE` blob carries them
+and a resume re-reads the same files. A finished `DIFFUSE` emits the latent
+**already spliced** for `repaint` and region `lego`: frames outside the region
+are the source's own (`ace_synth_job_get_spliced_latent`, the same helper phase
+2 uses), because `DECODE` decodes a bare latent and has no source to splice
+from. The phase-2 *waveform* splice (bit-exact PCM outside the region) is the
+host's to do if it wants it.
+
+`cantor_engine_capabilities()` (optional; absent means none) says what this
+build does with audio, in the host's vocabulary: `cover,extend,inpaint,timbre`.
+What the weights can do is the catalog's to say; a host advertises only what
+both declare. `tests/test-abi-audio.c` covers all of this.
 
 ## Pause and resume
 

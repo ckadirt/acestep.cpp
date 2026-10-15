@@ -103,6 +103,14 @@ AceSynthJob * ace_synth_job_run_dit(AceSynth *         ctx,
 // Only meaningful once phase 1 has completed: a paused job has no output yet.
 const float * ace_synth_job_get_latent(const AceSynthJob * job, int track_idx, int * T_out);
 
+// The same latent with the repaint/lego splice phase 2 applies before decoding:
+// generated frames inside the region, the source's latents everywhere else.
+// For a host that decodes the latent itself rather than through
+// ace_synth_job_run_vae, so a repainted or extended track keeps its source to
+// the frame. Equal to ace_synth_job_get_latent for tasks without a region.
+// Fills out with [T_latent * 64] f32 and sets *T_out. Completed jobs only.
+bool ace_synth_job_get_spliced_latent(const AceSynthJob * job, int track_idx, std::vector<float> & out, int * T_out);
+
 // Pause and resume.
 //
 // ace_synth_job_run_dit returns a job in one of two states. A completed job

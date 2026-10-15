@@ -694,6 +694,24 @@ const float * ace_synth_job_get_latent(const AceSynthJob * job, int track_idx, i
     return s.output.data() + (size_t) track_idx * s.T * s.Oc;
 }
 
+bool ace_synth_job_get_spliced_latent(const AceSynthJob * job, int track_idx, std::vector<float> & out, int * T_out) {
+    if (!job || job->paused || track_idx < 0 || track_idx >= job->batch_n) {
+        ace_set_error(ACE_ERR_INTERNAL, "[Synth-Splice] no completed track %d in this job", track_idx);
+        return false;
+    }
+    const SynthState & s   = job->state;
+    const float *      lat = s.output.data() + (size_t) track_idx * s.T * s.Oc;
+    out.assign(lat, lat + (size_t) s.T * s.Oc);
+    if (ops_latent_splice(s, out.data())) {
+        fprintf(stderr, "[Latent-Splice] kept generated frames [%d, %d) / %d, source elsewhere\n", s.repaint_t0,
+                s.repaint_t1, s.T);
+    }
+    if (T_out) {
+        *T_out = s.T;
+    }
+    return true;
+}
+
 // Phase 2: latent splice (for repaint/lego) + VAE decode for every batch item.
 int ace_synth_job_run_vae(AceSynth *    ctx,
                           AceSynthJob * job,

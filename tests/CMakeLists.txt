@@ -32,6 +32,13 @@ target_link_libraries(test-abi PRIVATE cantor-engine)
 set_target_properties(test-abi PROPERTIES LINKER_LANGUAGE CXX)
 link_ggml_backends(test-abi)
 
+# test-abi-audio: audio in through the ABI (cover, extend, refusals, resume).
+add_executable(test-abi-audio test-abi-audio.c)
+target_include_directories(test-abi-audio PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test-abi-audio PRIVATE cantor-engine)
+set_target_properties(test-abi-audio PROPERTIES LINKER_LANGUAGE CXX)
+link_ggml_backends(test-abi-audio)
+
 # test-backend-guard: two-process check that a paused blob is refused when
 # resumed on a different backend. Needs a build with two backends available.
 add_executable(test-backend-guard test-backend-guard.c)

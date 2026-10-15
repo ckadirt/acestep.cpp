@@ -67,6 +67,17 @@ typedef enum {
 // Bit position is the stage value: (1u << CANTOR_STAGE_DIFFUSE) etc.
 CANTOR_API uint32_t cantor_engine_stages(void);
 
+// What this build can do with audio, as a static comma-separated list of
+// capability kinds, e.g. "cover,extend,inpaint,timbre". The vocabulary is the
+// host's (cover, extend, inpaint, timbre, add_track, separate, accompany), not
+// this engine's task names. A build that does not export this symbol takes no
+// audio in. Additive: it does not change CANTOR_ENGINE_ABI, and a host must
+// look it up as optional.
+//
+// What the weights can do is the catalog's to say. A host advertises a
+// capability only where both agree.
+CANTOR_API const char * cantor_engine_capabilities(void);
+
 typedef enum {
     CANTOR_DONE   = 0,   // stage complete; state_out feeds the next stage
     CANTOR_PAUSED = 1,   // stopped on the cancel callback; state_out resumes THIS stage
@@ -146,7 +157,10 @@ typedef int (*cantor_cancel_fn)(void * userdata);
 // state_in / state_out are opaque bytes:
 //   PLAN, CODES   the request JSON
 //   DIFFUSE       in: request JSON. out: request + step + latent when paused,
-//                 or the raw [T,64] f32 latent when done
+//                 or the raw [T,64] f32 latent when done. Audio in is named
+//                 in the request by path (src_audio_path, ref_audio_path) and
+//                 read here; a task that takes a source enters at DIFFUSE,
+//                 and a repaint's latent comes out already spliced.
 //   DECODE        the raw [T,64] f32 latent; output is written to the sink
 //
 // On CANTOR_DONE the blob feeds the next stage. On CANTOR_PAUSED it resumes

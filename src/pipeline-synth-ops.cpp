@@ -893,6 +893,20 @@ int ops_dit_generate(const AceSynth * ctx, int batch_n, SynthState & s, bool (*c
     return 0;
 }
 
+bool ops_latent_splice(const SynthState & s, float * track_latent) {
+    bool have_region = s.is_repaint || s.is_lego_region;
+    if (!have_region || !s.have_cover || s.T_cover <= 0 || !track_latent) {
+        return false;
+    }
+    int copy_T = s.T_cover < s.T ? s.T_cover : s.T;
+    for (int t = 0; t < copy_T; t++) {
+        if (t < s.repaint_t0 || t >= s.repaint_t1) {
+            memcpy(track_latent + (size_t) t * 64, s.cover_latents.data() + (size_t) t * 64, 64 * sizeof(float));
+        }
+    }
+    return true;
+}
+
 int ops_vae_decode(const AceSynth * ctx,
                    int              batch_n,
                    AceAudio *       out,
@@ -909,19 +923,12 @@ int ops_vae_decode(const AceSynth * ctx,
     // Latent splice for repaint/lego: keep s.output inside [t0, t1), copy
     // s.cover_latents outside. Hard cut at frame boundary, the VAE tiled
     // decoder smooths the seam in the waveform.
-    bool have_region = s.is_repaint || s.is_lego_region;
-    if (have_region && s.have_cover && s.T_cover > 0) {
-        int copy_T = s.T_cover < s.T ? s.T_cover : s.T;
-        for (int b = 0; b < batch_n; b++) {
-            float * dst = s.output.data() + (size_t) b * s.Oc * s.T;
-            for (int t = 0; t < copy_T; t++) {
-                if (t < s.repaint_t0 || t >= s.repaint_t1) {
-                    memcpy(dst + (size_t) t * 64, s.cover_latents.data() + (size_t) t * 64, 64 * sizeof(float));
-                }
-            }
+    const bool have_region = s.is_repaint || s.is_lego_region;
+    for (int b = 0; b < batch_n; b++) {
+        if (ops_latent_splice(s, s.output.data() + (size_t) b * s.Oc * s.T) && b == 0) {
+            fprintf(stderr, "[Latent-Splice] kept generated frames [%d, %d) / %d, source elsewhere\n", s.repaint_t0,
+                    s.repaint_t1, s.T);
         }
-        fprintf(stderr, "[Latent-Splice] kept generated frames [%d, %d) / %d, source elsewhere\n", s.repaint_t0,
-                s.repaint_t1, s.T);
     }
 
     int                T_latent    = s.T;
