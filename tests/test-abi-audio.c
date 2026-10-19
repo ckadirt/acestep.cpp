@@ -14,6 +14,10 @@
  *     source, not a second encode), counts its tiles, and DIFFUSE from those
  *     latents gives the same cover, pauses without dropping them, and resumes
  *     to the same bytes; an extend from them still keeps the source's frames
+ *   - LISTEN (with an lm in --models) describes the source from ENCODE's
+ *     latents: an empty caption is filled, a written one is kept, what it
+ *     heard is readable until the next stage, DIFFUSE takes its blob, it
+ *     refuses a bare request, and a stopped LISTEN pauses with its input
  *
  * The source is made here: a short text2music render through the same ABI,
  * written as a 16-bit WAV. Usage: ./test-abi-audio --models <dir> [--tmp <dir>]
@@ -479,6 +483,119 @@ int main(int argc, char ** argv) {
         cantor_engine_free_blob(out);
     }
     cantor_engine_free(ctx);
+
+    /* ---- 7. LISTEN: the LM describes the source from ENCODE's latents ---- */
+    {
+        char * lm      = join(models, "acestep-5Hz-lm-0.6B-Q8_0.gguf");
+        FILE * have_lm = fopen(lm, "rb");
+        if (!have_lm) {
+            fprintf(stderr, "[ABI-Audio] SKIP: LISTEN (no %s)\n", lm);
+        } else {
+            fclose(have_lm);
+            cantor_component with_lm[4] = {
+                { "dit", dit },
+                { "embed", embed },
+                { "vae", vae },
+                { "lm", lm },
+            };
+            ctx = cantor_engine_load(with_lm, 4, &opts);
+            if (!(cantor_engine_stages() & (1u << CANTOR_STAGE_LISTEN))) {
+                bad("the stage mask should offer LISTEN");
+            } else {
+                ok("the stage mask offers LISTEN");
+            }
+            char unwritten[1024];
+            snprintf(unwritten, sizeof(unwritten),
+                     "{\"task_type\":\"cover\",\"caption\":\"\",\"lyrics\":\"[Instrumental]\","
+                     "\"src_audio_path\":\"%s\",\"seed\":11,\"inference_steps\":4,\"shift\":3.0}",
+                     src);
+            size_t    elen = 0;
+            uint8_t * enc  = encode(ctx, unwritten, &elen, NULL);
+            uint8_t * out  = NULL;
+            size_t    olen = 0;
+            if (!enc) {
+                bad("ENCODE a source with no caption");
+            } else if (cantor_engine_run_stage(ctx, CANTOR_STAGE_LISTEN, enc, elen, &out, &olen, NULL, NULL, NULL) !=
+                           CANTOR_DONE ||
+                       !out || olen < 24 || memcmp(out, "ACEENC01", 8) != 0) {
+                bad("LISTEN to ENCODE's latents");
+            } else {
+                const char * heard = cantor_engine_heard(ctx);
+                fprintf(stderr, "[ABI-Audio] heard: %s\n", heard ? heard : "(null)");
+                char * json = (char *) calloc(u32_at(out, 8) + 1, 1);
+                memcpy(json, out + 24, u32_at(out, 8));
+                if (!heard || !strstr(heard, "\"caption\"") || strstr(json, "\"caption\":\"\"") ||
+                    !strstr(json, "\"caption\"")) {
+                    bad("LISTEN should fill an empty caption with what it heard");
+                } else {
+                    ok("LISTEN fills an empty caption with what it heard");
+                }
+                if (olen - u32_at(out, 8) != elen - u32_at(enc, 8)) {
+                    bad("LISTEN should pass the latents on untouched");
+                } else {
+                    ok("LISTEN passes the latents on");
+                }
+                free(json);
+                size_t    dlen = 0;
+                uint8_t * lat  = diffuse_blob(ctx, out, olen, &dlen);
+                if (!lat || dlen == 0) {
+                    bad("DIFFUSE should take LISTEN's blob");
+                } else {
+                    ok("DIFFUSE takes LISTEN's blob");
+                }
+                if (cantor_engine_heard(ctx) != NULL) {
+                    bad("what LISTEN heard should be gone once another stage runs");
+                } else {
+                    ok("what LISTEN heard lasts until the next stage");
+                }
+                cantor_engine_free_blob(lat);
+            }
+            cantor_engine_free_blob(out);
+            cantor_engine_free_blob(enc);
+
+            /* a written caption is the person's: LISTEN keeps it */
+            size_t    wlen    = 0;
+            uint8_t * written = encode(ctx, cover_req, &wlen, NULL);
+            uint8_t * kept    = NULL;
+            size_t    klen    = 0;
+            if (!written || cantor_engine_run_stage(ctx, CANTOR_STAGE_LISTEN, written, wlen, &kept, &klen, NULL, NULL,
+                                                    NULL) != CANTOR_DONE) {
+                bad("LISTEN to a source with a written caption");
+            } else if (klen != wlen || memcmp(kept, written, wlen) != 0) {
+                bad("LISTEN should keep a written caption, blob unchanged");
+            } else {
+                ok("LISTEN keeps a written caption");
+            }
+            cantor_engine_free_blob(kept);
+
+            /* stopped mid-sentence: pause with the input, to start over */
+            struct pauser p      = { 3, 0, 0 };
+            uint8_t *     paused = NULL;
+            size_t        plen   = 0;
+            cantor_status st     = cantor_engine_run_stage(ctx, CANTOR_STAGE_LISTEN, written, wlen, &paused, &plen,
+                                                           NULL, cancel_after, &p);
+            if (st != CANTOR_PAUSED || plen != wlen || memcmp(paused, written, wlen) != 0) {
+                bad("a stopped LISTEN should pause with its input");
+            } else {
+                ok("a stopped LISTEN pauses with its input");
+            }
+            cantor_engine_free_blob(paused);
+            cantor_engine_free_blob(written);
+
+            uint8_t * refused = NULL;
+            size_t    rlen    = 0;
+            if (cantor_engine_run_stage(ctx, CANTOR_STAGE_LISTEN, (const uint8_t *) cover_req, strlen(cover_req),
+                                        &refused, &rlen, NULL, NULL, NULL) != CANTOR_ERR ||
+                !strstr(cantor_engine_last_error(), "ENCODE")) {
+                bad("LISTEN should refuse a bare request, naming ENCODE");
+            } else {
+                ok("LISTEN refuses a bare request");
+            }
+            cantor_engine_free_blob(refused);
+            cantor_engine_free(ctx);
+        }
+        free(lm);
+    }
 
     cantor_engine_free_blob(cover);
     remove(src);

@@ -11,6 +11,9 @@
 //   PLAN / CODES     request JSON (UTF-8, not NUL-terminated)
 //   ENCODE in        request JSON naming its audio
 //   ENCODE out       done: EncodedBlob (below). paused: the request JSON again
+//   LISTEN in        an EncodedBlob (ENCODE's output)
+//   LISTEN out       done: the EncodedBlob, its caption filled if it was empty.
+//                    paused: the input blob again
 //   DIFFUSE in       request JSON, or an EncodedBlob
 //   DIFFUSE out      paused: DiffuseBlob (below). done: raw [T,64] f32 latent
 //   DECODE in        raw [T,64] f32 latent
@@ -34,6 +37,7 @@
 #include "model-store.h"
 #include "pipeline-lm.h"
 #include "pipeline-synth.h"
+#include "pipeline-understand.h"
 #include "request.h"
 #include "task-types.h"
 #include "version.h"
@@ -59,9 +63,17 @@ struct cantor_ctx {
     AceSynthParams synth_params;
     AceLmParams    lm_params;
 
+    // The understanding pipeline LISTEN runs, loaded on first use: it shares
+    // the LM with PLAN/CODES through the store, so it costs no second copy.
+    AceUnderstand * understand = nullptr;
+
     // DECODE output, valid until the next run_stage on this context.
     std::vector<float> audio;
     int                audio_n;
+
+    // LISTEN output: what it heard, as JSON. Empty when the last stage was
+    // not a LISTEN that finished.
+    std::string heard;
 
     // Live progress/cancel plumbing for the current stage. The pipelines take
     // a bare cancel callback, so the trampolines below carry both through it.
@@ -109,7 +121,7 @@ extern "C" const char * cantor_engine_version(void) {
 
 extern "C" uint32_t cantor_engine_stages(void) {
     return (1u << CANTOR_STAGE_PLAN) | (1u << CANTOR_STAGE_CODES) | (1u << CANTOR_STAGE_DIFFUSE) |
-           (1u << CANTOR_STAGE_DECODE) | (1u << CANTOR_STAGE_ENCODE);
+           (1u << CANTOR_STAGE_DECODE) | (1u << CANTOR_STAGE_ENCODE) | (1u << CANTOR_STAGE_LISTEN);
 }
 
 // What this build does with audio. Kept in step with run_diffuse below: cover
@@ -371,6 +383,9 @@ extern "C" void cantor_engine_free(cantor_ctx * ctx) {
     if (!ctx) {
         return;
     }
+    if (ctx->understand) {
+        ace_understand_free(ctx->understand);
+    }
     if (ctx->lm) {
         ace_lm_free(ctx->lm);
     }
@@ -389,6 +404,10 @@ extern "C" uint64_t cantor_engine_resident_bytes(cantor_ctx * ctx) {
 
 extern "C" int cantor_engine_resident_modules(cantor_ctx * ctx) {
     return ctx && ctx->store ? store_gpu_module_count(ctx->store) : 0;
+}
+
+extern "C" const char * cantor_engine_heard(cantor_ctx * ctx) {
+    return ctx && !ctx->heard.empty() ? ctx->heard.c_str() : nullptr;
 }
 
 extern "C" const float * cantor_engine_audio(cantor_ctx * ctx, int * n_samples, int * sample_rate) {
@@ -535,7 +554,9 @@ static std::vector<uint8_t> encoded_bytes(const Encoded & e) {
     memcpy(h.magic, ENCODED_MAGIC, 8);
     h.json_len   = (uint32_t) e.json.size();
     h.T_src      = (uint32_t) e.T_src;
-    h.T_ref      = (uint32_t) e.T_ref;
+    // A kept voice's reference is the source: 0, as ENCODE writes it (parsing
+    // fills T_ref with T_src for convenience, which must not round-trip).
+    h.T_ref      = e.ref_is_src ? 0u : (uint32_t) e.T_ref;
     h.ref_is_src = e.ref_is_src ? 1u : 0u;
     std::vector<uint8_t> buf(sizeof(h) + e.json.size() + (e.src.size() + e.ref.size()) * sizeof(float));
     uint8_t * p = buf.data();
@@ -631,6 +652,112 @@ static cantor_status run_encode(cantor_ctx *    c,
     }
     fprintf(stderr, "[ABI] ENCODE: src %d frames, ref %s\n", e.T_src,
             e.ref_is_src ? "is the source" : (e.T_ref > 0 ? "encoded" : "none"));
+    std::vector<uint8_t> buf = encoded_bytes(e);
+    if (!blob_alloc(buf.data(), buf.size(), out, out_len)) {
+        return CANTOR_ERR;
+    }
+    return CANTOR_DONE;
+}
+
+// ----------------------------------------------------------- stage: LISTEN
+
+// The understanding pipeline returns the same failure for a stop as for an
+// error, so LISTEN remembers whether the host asked it to stop.
+struct ListenCancel {
+    cantor_ctx * c;
+    bool         fired;
+};
+
+static bool listen_cancel(void * ud) {
+    auto * l = (ListenCancel *) ud;
+    if (cancel_tramp(l->c)) {
+        l->fired = true;
+    }
+    return l->fired;
+}
+
+// ENCODE's blob in, the same blob out with an empty caption filled from what
+// the LM hears in the source's latents. The understanding pipeline stops
+// before lyrics (caption_only): a small LM's lyrics of a song it only heard
+// are rarely the song's, and the caption is what a version conditions on.
+static cantor_status run_listen(cantor_ctx *    c,
+                                const uint8_t * in,
+                                size_t          in_len,
+                                uint8_t **      out,
+                                size_t *        out_len) {
+    if (!c->lm || !c->synth) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] LISTEN needs the lm and dit/embed/vae components");
+        return CANTOR_ERR;
+    }
+    if (!is_encoded(in, in_len)) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] LISTEN takes ENCODE's output, not a request");
+        return CANTOR_ERR;
+    }
+    Encoded e;
+    if (!parse_encoded(in, in_len, e)) {
+        return CANTOR_ERR;
+    }
+    if (e.T_src <= 0) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] LISTEN needs a source: src_audio_path was not encoded");
+        return CANTOR_ERR;
+    }
+    AceRequest req;
+    request_init(&req);
+    if (!request_parse_json(&req, e.json.c_str())) {
+        ace_set_error(ACE_ERR_INTERNAL, "[ABI] encoded blob's request is not valid JSON");
+        return CANTOR_ERR;
+    }
+    if (!c->understand) {
+        AceUnderstandParams p;
+        ace_understand_default_params(&p);
+        // The same LM key as PLAN/CODES (path, max_seq, batch), so the store
+        // hands both pipelines one instance.
+        p.model_path   = c->lm_path.c_str();
+        p.dit_path     = c->dit_path.c_str();
+        p.vae_path     = c->vae_path.c_str();
+        p.max_seq      = c->lm_params.max_seq;
+        p.max_batch    = c->lm_params.max_batch;
+        p.use_fa       = c->lm_params.use_fa;
+        p.caption_only = true;
+        c->understand  = ace_understand_load(c->store, &p);
+        if (!c->understand) {
+            if (ace_error_code() == ACE_OK) {
+                ace_set_error(ACE_ERR_BAD_MODEL, "[ABI] the understanding pipeline did not load");
+            }
+            return CANTOR_ERR;
+        }
+    }
+    AceRequest heard;
+    request_init(&heard);
+    ListenCancel stop = { c, false };
+    int          rc   = ace_understand_generate(c->understand, nullptr, 0, e.src.data(), e.T_src, &req, &heard,
+                                                nullptr, nullptr, listen_cancel, &stop);
+    if (rc != 0) {
+        // Stopped mid-sentence: nothing worth keeping, LISTEN starts over.
+        if (stop.fired) {
+            return blob_alloc(in, in_len, out, out_len) ? CANTOR_PAUSED : CANTOR_ERR;
+        }
+        if (ace_error_code() == ACE_OK) {
+            ace_set_error(ACE_ERR_INTERNAL, "[ABI] the LM could not describe the source");
+        }
+        return CANTOR_ERR;
+    }
+    AceRequest said;
+    request_init(&said);
+    said.caption        = heard.caption;
+    said.bpm            = heard.bpm;
+    said.keyscale       = heard.keyscale;
+    said.timesignature  = heard.timesignature;
+    said.vocal_language = heard.vocal_language;
+    c->heard            = request_to_json(&said, true);
+    fprintf(stderr, "[ABI] LISTEN: %zu-char caption\n", heard.caption.size());
+    // A caption someone wrote is theirs: LISTEN only fills an empty one, and
+    // otherwise hands its input on byte for byte.
+    if (!req.caption.empty() || heard.caption.empty()) {
+        return blob_alloc(in, in_len, out, out_len) ? CANTOR_DONE : CANTOR_ERR;
+    }
+    req.caption                = heard.caption;
+    e.json                     = request_to_json(&req, true);
     std::vector<uint8_t> buf = encoded_bytes(e);
     if (!blob_alloc(buf.data(), buf.size(), out, out_len)) {
         return CANTOR_ERR;
@@ -869,6 +996,7 @@ extern "C" cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
     ctx->cancel   = should_cancel;
     ctx->userdata = userdata;
     ctx->stage    = stage;
+    ctx->heard.clear();
     if (ctx->synth) {
         ace_synth_set_progress(ctx->synth, on_progress ? progress_tramp : nullptr, ctx);
     }
@@ -889,6 +1017,8 @@ extern "C" cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
             return abi_guard([&] { return run_decode(ctx, state_in, in_len); }, CANTOR_ERR);
         case CANTOR_STAGE_ENCODE:
             return abi_guard([&] { return run_encode(ctx, state_in, in_len, state_out, out_len); }, CANTOR_ERR);
+        case CANTOR_STAGE_LISTEN:
+            return abi_guard([&] { return run_listen(ctx, state_in, in_len, state_out, out_len); }, CANTOR_ERR);
     }
     ace_set_error(ACE_ERR_INTERNAL, "[ABI] unknown stage %d", (int) stage);
     return CANTOR_ERR;

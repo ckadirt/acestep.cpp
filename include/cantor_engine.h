@@ -61,6 +61,7 @@ typedef enum {
     CANTOR_STAGE_DIFFUSE = 3,  // DiT: flow matching, re-enterable
     CANTOR_STAGE_DECODE  = 4,  // VAE: latents -> PCM
     CANTOR_STAGE_ENCODE  = 5,  // VAE: a request's audio -> latents, then DIFFUSE
+    CANTOR_STAGE_LISTEN  = 6,  // LM: ENCODE's latents -> what the source sounds like
 } cantor_stage;
 
 // Bitmask of the stages this build can run, so a cut-down or CPU-only engine
@@ -72,6 +73,13 @@ typedef enum {
 // ref_audio_path), always followed by DIFFUSE, which then takes ENCODE's
 // output instead of the request. A host that does not know the bit ignores it
 // and enters such a request at DIFFUSE, which encodes inside, as before.
+//
+// LISTEN is a second side step, between ENCODE and DIFFUSE: it takes ENCODE's
+// blob, has the LM describe the source from its latents (the understanding
+// pipeline, stopped before lyrics), fills the request's caption when it is
+// empty, and passes the same blob on. What it heard is readable through
+// cantor_engine_heard. It needs the lm component as well as dit + vae. A host
+// that does not know the bit never runs it.
 CANTOR_API uint32_t cantor_engine_stages(void);
 
 // What this build can do with audio, as a static comma-separated list of
@@ -186,6 +194,12 @@ CANTOR_API cantor_status cantor_engine_run_stage(cantor_ctx *       ctx,
                                       void *             userdata);
 
 CANTOR_API void cantor_engine_free_blob(uint8_t * blob);
+
+// What the last LISTEN heard, as a JSON object: caption, and when the LM said
+// them bpm, keyscale, timesignature, vocal_language. Valid until the next
+// run_stage on this context; NULL when the last stage was not a LISTEN that
+// finished. Additive: a host must look it up as optional.
+CANTOR_API const char * cantor_engine_heard(cantor_ctx * ctx);
 
 // DECODE writes audio here rather than into a state blob: it is the one
 // stage whose output is not another stage's input.

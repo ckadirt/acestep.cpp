@@ -24,6 +24,10 @@ struct AceUnderstandParams {
     bool         use_fa;       // flash attention
     int          vae_chunk;    // latent frames per tile
     int          vae_overlap;  // overlap frames per side
+    bool         caption_only; // stop once the metadata block closes (</think>):
+                               // caption, bpm, key, time signature, language,
+                               // and no lyrics. A small LM's lyrics of a song
+                               // it only heard are rarely the song's.
 };
 
 void ace_understand_default_params(AceUnderstandParams * p);

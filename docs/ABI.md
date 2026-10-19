@@ -155,6 +155,7 @@ What you can rely on:
 | `PLAN` | request JSON | enriched request JSON |
 | `CODES` | request JSON | request JSON with `audio_codes` |
 | `ENCODE` | request JSON naming audio | encoded blob (done) / the request again (paused) |
+| `LISTEN` | `ENCODE`'s blob | the same blob, an empty caption filled (done) / its input (paused); what it heard via `cantor_engine_heard` |
 | `DIFFUSE` | request JSON, or `ENCODE`'s blob | latent (done) / resume blob (paused) |
 | `DECODE` | latent | none; audio via `cantor_engine_audio` |
 
@@ -204,6 +205,22 @@ gives byte-identical output to a `DIFFUSE` that read them itself. Paused, it
 keeps the latents in its resume blob (`ACEDIF02`), so a resume never encodes
 again. On a 3-minute source on CPU, encoding was 13 minutes of a job: worth a
 stage of its own, its own progress, and a checkpoint.
+
+### `LISTEN`
+
+Bit 6 of `cantor_engine_stages()`, a second side step between `ENCODE` and
+`DIFFUSE` for a request whose caption should describe its source. It takes
+`ENCODE`'s blob, runs the understanding pipeline (FSQ tokenizer → LM) on the
+source's latents, and stops when the LM's metadata block closes: caption, bpm,
+key, time signature, language, no lyrics (a 0.6B LM's lyrics of a song it only
+heard are rarely the song's). An empty caption in the request is filled; a
+written one is kept. The blob comes out with the latents untouched, so
+`DIFFUSE` takes it exactly as it takes `ENCODE`'s. What was heard is a JSON
+object from `cantor_engine_heard()`, valid until the next stage: blobs are
+opaque, so this is how a host records what the model was told. Stopped, it
+pauses with its input and starts over. It needs the `lm` component; the LM is
+shared with `PLAN`/`CODES` through the model store. Measured on a 4-minute
+source on CPU: about 30 s, after `ENCODE`'s latents.
 
 The paths are part of `AceRequest`, so a paused `DIFFUSE` blob carries them
 and a resume re-reads the same files. A finished `DIFFUSE` emits the latent

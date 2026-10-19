@@ -48,8 +48,9 @@ void ace_understand_default_params(AceUnderstandParams * p) {
     p->max_batch   = 1;
     p->use_fsm     = true;
     p->use_fa      = true;
-    p->vae_chunk   = 1024;
-    p->vae_overlap = 64;
+    p->vae_chunk    = 1024;
+    p->vae_overlap  = 64;
+    p->caption_only = false;
 }
 
 AceUnderstand * ace_understand_load(ModelStore * store, const AceUnderstandParams * params) {
@@ -344,6 +345,11 @@ int ace_understand_generate(AceUnderstand *      ctx,
         }
 
         gen_tokens.push_back(tok);
+
+        // The metadata is complete: stop before the lyrics.
+        if (past_think && ctx->params.caption_only) {
+            break;
+        }
 
         // Next token forward
         if (!qw3lm_forward(model, &tok, 1, 0, logits.data())) {
